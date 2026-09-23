@@ -83,3 +83,24 @@ test("settings withValue and findEntry", () => {
     { id: "dev.reuk.beam", x: 1 })
   assert.equal(Settings.findEntry({}, "dev.reuk.beam"), null)
 })
+
+test("applyEntry replaces Beam's entry and keeps everything else", () => {
+  const before = JSON.stringify({ version: 1, bar: { id: "omarchy.bar" },
+    plugins: [{ id: "other", x: 1 }, { id: "dev.reuk.beam", sources: { apps: true } }] }, null, 2) + "\n"
+  const next = Settings.merge({ sources: { apps: false } })
+  const text = Settings.applyEntry(before, "dev.reuk.beam", next)
+  const parsed = JSON.parse(text)
+  assert.deepEqual(parsed.bar, { id: "omarchy.bar" })
+  assert.deepEqual(parsed.plugins[0], { id: "other", x: 1 })
+  assert.equal(parsed.plugins[1].id, "dev.reuk.beam")
+  assert.equal(parsed.plugins[1].sources.apps, false)
+  assert.ok(text.endsWith("}\n"))
+  assert.ok(text.includes('\n  "plugins"'))  // two-space indent, like the shell writes it
+})
+
+test("applyEntry refuses to touch an unreadable config or one without Beam's entry", () => {
+  const next = Settings.merge({})
+  assert.equal(Settings.applyEntry("{ not json", "dev.reuk.beam", next), null)
+  assert.equal(Settings.applyEntry(JSON.stringify({ plugins: [] }), "dev.reuk.beam", next), null)
+  assert.equal(Settings.applyEntry("", "dev.reuk.beam", next), null)
+})

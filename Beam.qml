@@ -97,12 +97,23 @@ Item {
 
   function dismiss() {
     root.close()
+    // The shell API can go stale while Beam stays loaded (see SettingsStore);
+    // the IPC command reaches the host either way.
     if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
+    else Quickshell.execDetached(["omarchy-shell", "shell", "hide", root.pluginId])
   }
 
   function toggle() {
     if (root.opened) root.dismiss()
     else root.open("{}")
+  }
+
+  // `omarchy-shell shell call dev.reuk.beam status x` — a snapshot for troubleshooting.
+  function status(arg) {
+    return JSON.stringify({ hasShell: !!root.shell, opened: root.opened, engineReady: engine.ready, engineDisabled: engine.disabled,
+                            jev: root.jevStatus, entries: menuSource.entries.length,
+                            appLibrary: root.shell && root.shell.appLibrary ? "shell" : "beam",
+                            settings: root.settings })
   }
 
   // ── typing → rows ───────────────────────────────────────────────────────
