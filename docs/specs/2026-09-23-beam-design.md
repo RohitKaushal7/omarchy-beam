@@ -267,7 +267,6 @@ Built-in engines (each disable-able, overridable, extendable in settings):
 | yt | youtube.com | https://www.youtube.com/results?search_query=%s |
 | ddg | duckduckgo.com | https://duckduckgo.com/?q=%s |
 | gh | github.com | https://github.com/search?q=%s&type=repositories |
-| w | wikipedia.org | https://en.wikipedia.org/w/index.php?search=%s |
 | r | reddit.com | https://www.reddit.com/search/?q=%s |
 | maps | — | https://www.google.com/maps/search/%s |
 | aw | wiki.archlinux.org | https://wiki.archlinux.org/index.php?search=%s |

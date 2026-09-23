@@ -69,7 +69,6 @@ a space and your search.
 | `yt` | YouTube |
 | `ddg` | DuckDuckGo |
 | `gh` | GitHub |
-| `w` | Wikipedia |
 | `r` | Reddit |
 | `maps` | Google Maps |
 | `aw` | Arch Wiki |

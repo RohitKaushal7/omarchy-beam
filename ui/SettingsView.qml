@@ -21,6 +21,7 @@ FocusScope {
 
   property int cursor: -1
   property bool editing: false
+  property var activeEditor: null
 
   signal closeRequested()
 
@@ -110,7 +111,12 @@ FocusScope {
     }
   }
 
-  function endEdit() {
+  // Give the keyboard back to the view. A FocusScope's forceActiveFocus()
+  // hands focus to whichever child last had it, so the text field that was
+  // being edited must drop its own focus first, or it takes the keys back.
+  function refocus() {
+    if (view.activeEditor) view.activeEditor.focus = false
+    view.activeEditor = null
     view.editing = false
     view.forceActiveFocus()
   }
@@ -122,9 +128,10 @@ FocusScope {
     referenceItem: view
   }
 
-  onVisibleChanged: if (visible) {
+  // Called each time settings opens: start at the first setting, at the top.
+  function reset() {
     pointerGate.reset()
-    view.editing = false
+    view.refocus()
     view.cursor = Settings.nextField(view.rows, -1, 1)
     list.positionViewAtBeginning()
   }
@@ -163,6 +170,8 @@ FocusScope {
     ListView {
       id: list
       width: parent.width
+      focus: false
+      keyNavigationEnabled: false  // the view owns the arrow keys
       height: parent.height - hint.height - parent.spacing
       model: view.rows
       clip: true
@@ -242,7 +251,7 @@ FocusScope {
         }
         onClicked: {
           view.cursor = rowItem.rowIndex
-          view.forceActiveFocus()
+          view.refocus()
           view.activate()
         }
       }
@@ -336,34 +345,40 @@ FocusScope {
           options: spec.options || []
           hasCursor: rowItem.hasCursor
           fontFamily: view.fontFamily
-          onChanged: function(value) { view.set(spec.path, value) }
+          onChanged: function(value) {
+            view.set(spec.path, value)
+            view.refocus()
+          }
         }
 
         Loader {
           id: textControl
           anchors.fill: parent
           active: spec.type === "text"
+          // Enter, Esc, Tab or clicking away all save the text and hand the
+          // keyboard back to the view.
           sourceComponent: TextField {
-            property bool reverting: false
+            id: editor
             function startEdit() {
-              view.editing = true
               forceActiveFocus()
               selectAll()
             }
             text: String(view.get(spec.path) || "")
             hasCursor: rowItem.hasCursor
             font.family: view.fontFamily
-            onActiveFocusChanged: if (activeFocus) view.editing = true
-            onEditingFinished: {
-              if (!reverting) view.set(spec.path, text)
-              reverting = false
-              view.endEdit()
+            onActiveFocusChanged: if (activeFocus) {
+              view.cursor = rowItem.rowIndex
+              view.activeEditor = editor
+              view.editing = true
             }
-            Keys.onEscapePressed: function(event) {
-              reverting = true
-              text = String(view.get(spec.path) || "")
-              view.endEdit()
-              event.accepted = true
+            onEditingFinished: view.set(spec.path, text)
+            Keys.onPressed: function(event) {
+              if (event.key === Qt.Key_Escape || event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                  || event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+                view.set(spec.path, text)
+                view.refocus()
+                event.accepted = true
+              }
             }
           }
         }

@@ -113,6 +113,8 @@ Item {
     return JSON.stringify({ hasShell: !!root.shell, opened: root.opened, engineReady: engine.ready, engineDisabled: engine.disabled,
                             jev: root.jevStatus, entries: menuSource.entries.length,
                             appLibrary: root.shell && root.shell.appLibrary ? "shell" : "beam",
+                            settingsCursor: settingsView.cursor,
+                            settingsEditing: settingsView.editing,
                             settings: root.settings })
   }
 
@@ -423,7 +425,7 @@ Item {
   function openSettings() {
     root.settingsOpen = true
     panel.freezeCardTop()
-    Qt.callLater(function() { settingsView.forceActiveFocus() })
+    Qt.callLater(function() { settingsView.reset() })
   }
 
   function closeSettings() {

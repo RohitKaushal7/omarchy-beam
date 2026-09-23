@@ -61,3 +61,8 @@ test("precheck gate", () => {
   for (const t of ["chrome", "firefox dev", "screen warmer", "yt lofi", "", "install docker", "x".repeat(300)])
     assert.equal(P.mayBeAnswer(t), false, t)
 })
+
+test("Wikipedia is not a built-in shortcut", () => {
+  assert.equal(S.findEngine(ENGINES, "w"), null)
+  assert.equal(S.chipFor("wikipedia.org", ENGINES), null)
+})
