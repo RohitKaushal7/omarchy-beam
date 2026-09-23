@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.reuk.beam",
+  "name": "Beam",
+  "version": "0.1.0",
+  "author": "reuk",
+  "license": "MIT",
+  "description": "One box for apps, Omarchy actions, inline maths and conversions, web search shortcuts and URLs, with optional TypeSafe Jev matching by meaning.",
+  "kinds": ["menu"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Beam.qml"
+  }
+}
