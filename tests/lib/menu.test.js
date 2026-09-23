@@ -105,3 +105,12 @@ test("real Omarchy menu loads", { skip: !hasOmarchy }, () => {
   assert.equal(Menu.search(t.items, entries, "nightlight")[0].entry.id, "trigger.toggle.nightlight")
   assert.ok(Menu.guardScript(t.items).length > 0)
 })
+
+test("an app named exactly like the query outranks a same-named menu action", () => {
+  const t = tree(SAMPLE + "", `{"setup.defaults.browser.chromium": {"label": "Chromium", "action": "x"}}`)
+  const apps = Menu.appItems([{ id: "chromium", name: "Chromium", subtext: "Web Browser", keywords: [], icon: "chromium" }],
+                             t.itemOrder.length)
+  assert.equal(apps[0].order, t.itemOrder.length)
+  const rows = Menu.search(t.items, Menu.searchable(t.items, t.itemOrder, {}).concat(apps), "chromium")
+  assert.equal(rows[0].entry.id, "apps.chromium")
+})

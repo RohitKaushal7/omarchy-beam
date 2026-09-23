@@ -23,7 +23,8 @@ Item {
   property var manifest: null
 
   readonly property string pluginId: (root.manifest && root.manifest.id) || "dev.reuk.beam"
-  readonly property var appLibrary: root.shell ? root.shell.appLibrary : null
+  // Omarchy's facade when the shell provides it, Beam's own app source otherwise.
+  readonly property var appLibrary: root.shell && root.shell.appLibrary ? root.shell.appLibrary : appSource
   readonly property var settings: settingsStore.settings
   readonly property var engines: Shortcuts.engines(root.settings.search.engines, root.settings.search.disabledBuiltins)
   readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/beam"
@@ -439,6 +440,8 @@ Item {
   // ── wiring ──────────────────────────────────────────────────────────────
 
   ListModel { id: displayModel }
+
+  AppSource { id: appSource }
 
   Engine {
     id: engine

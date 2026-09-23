@@ -33,7 +33,7 @@ Item {
   function appEntries() {
     if (!source.appLibrary) return []
     var rows = source.appLibrary.sortedEntries("")
-    var out = []
+    var apps = []
     for (var i = 0; i < rows.length; i++) {
       var entry = rows[i].entry
       if (!entry || !entry.id) continue
@@ -41,15 +41,15 @@ Item {
       try {
         for (var k = 0; entry.keywords && k < entry.keywords.length; k++) keywords.push(String(entry.keywords[k]))
       } catch (e) { }
-      out.push(Menu.appItem({
+      apps.push({
         id: String(entry.id),
         name: source.appLibrary.entryName(entry),
         subtext: source.appLibrary.entrySubtext(entry),
         keywords: keywords,
         icon: String(entry.icon || "")
-      }, 100000 + i))
+      })
     }
-    return out
+    return Menu.appItems(apps, source.itemOrder.length)
   }
 
   function rebuildEntries() {
