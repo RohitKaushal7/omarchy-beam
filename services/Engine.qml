@@ -15,11 +15,22 @@ Item {
   property int crashes: 0
   property real firstCrashAt: 0
   property bool stopping: false
+  // TYPESAFE_API_KEY as the user's login shell sees it. omarchy-shell is
+  // started by the session, not a login shell, so a key exported from shell
+  // rc files is missing from Quickshell.env; ask the login shell once.
+  property string loginKey: ""
+  property bool keyProbed: Quickshell.env("TYPESAFE_API_KEY") ? true : false
+  property bool startWhenProbed: false
 
   signal message(var msg)
 
   function start() {
     if (engine.disabled || proc.running) return
+    if (!engine.keyProbed) {
+      engine.startWhenProbed = true
+      if (!keyProbe.running) keyProbe.running = true
+      return
+    }
     engine.ready = false
     proc.running = true
   }
@@ -51,8 +62,25 @@ Item {
       var value = Quickshell.env(names[i])
       if (value) env[names[i]] = String(value)
     }
+    if (!env.TYPESAFE_API_KEY && engine.loginKey) env.TYPESAFE_API_KEY = engine.loginKey
     return env
   }
+
+  Process {
+    id: keyProbe
+    command: [Quickshell.env("SHELL") || "/bin/bash", "-lc", 'printf %s "${TYPESAFE_API_KEY-}"']
+    stdout: StdioCollector { id: keyOut; waitForEnd: true }
+    onExited: {
+      engine.loginKey = String(keyOut.text || "").trim()
+      engine.keyProbed = true
+      if (engine.startWhenProbed) {
+        engine.startWhenProbed = false
+        engine.start()
+      }
+    }
+  }
+
+  Component.onCompleted: if (!engine.keyProbed) keyProbe.running = true
 
   Process {
     id: proc

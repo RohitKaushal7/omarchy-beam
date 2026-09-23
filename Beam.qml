@@ -756,7 +756,12 @@ Item {
             store: settingsStore
             jevStatus: root.jevStatus
             foreground: root.foreground
+            selectedBackground: root.selectedBackground
+            selectedText: root.selectedText
+            selectedBorderSpec: root.selectedBorderSpec
             fontFamily: root.fontFamily
+            rowHeight: root.baseRowHeight
+            detailRowHeight: root.detailRowHeight
             onCloseRequested: root.closeSettings()
           }
         }
