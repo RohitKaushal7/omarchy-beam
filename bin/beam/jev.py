@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import os
 import threading
@@ -88,7 +89,7 @@ def http_post(key: str, payload: dict, timeout: float = 6.0) -> dict:
         if e.code in (401, 403):
             raise AuthError(f"HTTP {e.code}") from None
         raise JevError(f"HTTP {e.code}") from None
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
+    except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError, ValueError) as e:
         raise JevError(str(e)) from None
 
 
@@ -175,9 +176,10 @@ class JevClient:
             answer = result["answers"]["target"]
             probs = answer.get("probabilities") or {answer["choice"]: 1.0}
             tokens = int((result.get("usage") or {}).get("input_tokens") or 0)
+            # Only the options we offered count; anything else is not a pick.
+            return {str(k): float(v) for k, v in probs.items() if str(k) in criteria}, tokens
         except (KeyError, TypeError, ValueError, AttributeError):
             raise JevError("unexpected response") from None
-        return {str(k): float(v) for k, v in probs.items()}, tokens
 
     @staticmethod
     def _best(probs: Dict[str, float]) -> Optional[Tuple[str, float]]:

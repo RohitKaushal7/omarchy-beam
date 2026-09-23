@@ -128,6 +128,7 @@ Item {
     root.filterText = text
     root.serial += 1
     root.confirmKey = ""
+    root.enterQueued = false  // an Enter waiting on the previous text must not act on this one
     jevTimer.stop()
     var local = root.localParts(text)
     if (!root.chip && text.trim() && root.answersEnabled() && !engine.disabled && Precheck.mayBeAnswer(text)) {
@@ -148,14 +149,14 @@ Item {
   function searchEntries() {
     var s = root.settings.sources
     if (s.apps && s.actions) return menuSource.entries
-    return menuSource.entries.filter(function(e) { return e.kind === "app" ? s.apps : s.actions })
+    return menuSource.entries.filter(function(e) { return Menu.allowedBySources(e, s) })
   }
 
   function recentRows() {
     var out = []
     for (var i = 0; i < root.recent.length && out.length < 6; i++) {
       var entry = menuSource.entryForKey(root.recent[i].key)
-      if (entry) out.push(root.entryRow(entry))
+      if (entry && Menu.allowedBySources(entry, root.settings.sources)) out.push(root.entryRow(entry))
     }
     return out
   }
@@ -278,7 +279,11 @@ Item {
   }
 
   function sendCatalog() {
-    engine.send({ op: "catalog", items: menuSource.catalog() })
+    var s = root.settings.sources
+    var items = menuSource.catalog().filter(function(item) {
+      return item.key.indexOf("app:") === 0 ? s.apps : s.actions
+    })
+    engine.send({ op: "catalog", items: items })
   }
 
   function onEngineMessage(msg) {
@@ -299,7 +304,7 @@ Item {
       if (msg.status) root.jevStatus = String(msg.status)
       if (msg.id !== root.serial || !msg.pick || !root.opened) return
       var entry = menuSource.entryForKey(msg.pick.key)
-      if (!entry) return
+      if (!entry || !Menu.allowedBySources(entry, root.settings.sources)) return
       var starred = root.entryRow(entry)
       starred.jev = true
       root.lateInsert(starred)
@@ -345,6 +350,10 @@ Item {
 
   function activateSelected() {
     if (root.selectedIndex >= 0) root.activate(root.rows[root.selectedIndex])
+  }
+
+  function paste() {
+    if (!pasteProc.running) pasteProc.running = true
   }
 
   function copyText(text) {
@@ -473,7 +482,10 @@ Item {
     id: settingsStore
     pluginId: root.pluginId
     shell: root.shell
-    onChanged: if (engine.ready) root.sendConfig()
+    onChanged: if (engine.ready) {
+      root.sendConfig()
+      root.sendCatalog()
+    }
   }
 
   FileView {
@@ -486,6 +498,19 @@ Item {
     }
     onLoadFailed: root.recent = []
     onFileChanged: reload()
+  }
+
+  // Ctrl+V: clipboard text, newlines flattened, capped (pastes are rarely
+  // searches; long ones still work for web search and Ask agent).
+  Process {
+    id: pasteProc
+    command: ["wl-paste", "--no-newline", "--type", "text"]
+    stdout: StdioCollector { id: pasteOut; waitForEnd: true }
+    onExited: function(exitCode) {
+      if (exitCode !== 0 || !root.opened) return
+      var text = String(pasteOut.text || "").replace(/\s*[\r\n]+\s*/g, " ").slice(0, 1000)
+      if (text) root.setText(root.filterText + text)
+    }
   }
 
   Timer {
@@ -573,6 +598,8 @@ Item {
             root.openSettings()
           } else if (ctrl && event.key === Qt.Key_C) {
             root.copySelected()
+          } else if (ctrl && event.key === Qt.Key_V) {
+            root.paste()
           } else if (event.key === Qt.Key_Tab) {
             root.tab()
           } else if (event.key === Qt.Key_Backspace && !root.filterText && root.chip) {
@@ -592,7 +619,7 @@ Item {
             root.enter()
           } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32
                      && event.text.charCodeAt(0) !== 127
-                     && (event.modifiers === Qt.NoModifier || event.modifiers === Qt.ShiftModifier)) {
+                     && (event.modifiers & ~(Qt.ShiftModifier | Qt.KeypadModifier)) === 0) {
             root.setText(root.filterText + event.text)
           } else {
             return

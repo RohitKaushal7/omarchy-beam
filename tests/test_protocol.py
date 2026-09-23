@@ -124,6 +124,22 @@ class JevOps(unittest.TestCase):
         ids = [m["id"] for m in out.messages() if m["op"] == "jev"]
         self.assertEqual(ids, [2])
 
+    def test_worker_survives_an_unexpected_exception(self):
+        class Boom(FakeJev):
+            def pick(self, q, catalog):
+                self.calls.append(q)
+                if len(self.calls) == 1:
+                    raise KeyError("surprise")
+                return jev.Pick("a", 0.9), False
+
+        s, out = server(Boom())
+        s.handle(json.dumps({"op": "jev", "id": 1, "q": "first"}))
+        self.assertTrue(wait_for(lambda: any(m.get("id") == 1 for m in out.messages() if m["op"] == "jev")))
+        s.handle(json.dumps({"op": "jev", "id": 2, "q": "second"}))
+        self.assertTrue(wait_for(lambda: any(m.get("id") == 2 for m in out.messages() if m["op"] == "jev")))
+        first = [m for m in out.messages() if m.get("id") == 1][0]
+        self.assertIsNone(first["pick"])
+
     def test_disabled(self):
         s, out = server()
         s.handle(json.dumps({"op": "config", "settings": {"jev": {"enabled": False}}}))

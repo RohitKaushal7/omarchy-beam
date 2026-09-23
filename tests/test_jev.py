@@ -140,6 +140,25 @@ class Picks(unittest.TestCase):
         self.assertIn("1 API calls", jev.format_stats(os.path.join(tmp, "usage.jsonl")))
 
 
+class MalformedResponses(unittest.TestCase):
+    def test_pick_outside_the_options_is_no_pick(self):
+        def post(key, payload):
+            return {"answers": {"target": {"choice": "Not an option", "probabilities": {"Not an option": 0.9}}}}
+        self.assertEqual(client(post).pick("q", jev.Catalog(items(3))), (None, False))
+
+    def test_probabilities_not_a_dict_is_no_pick(self):
+        def post(key, payload):
+            return {"answers": {"target": {"choice": "Item 1 — Setup", "probabilities": ["x"]}}}
+        self.assertEqual(client(post).pick("q", jev.Catalog(items(3))), (None, False))
+
+    def test_http_protocol_errors_become_jev_errors(self):
+        import http.client
+        import unittest.mock
+        with unittest.mock.patch("urllib.request.urlopen", side_effect=http.client.IncompleteRead(b"")):
+            with self.assertRaises(jev.JevError):
+                jev.http_post("k", {})
+
+
 class ReadKey(unittest.TestCase):
     def test_env_then_file(self):
         tmp = tempfile.mkdtemp()

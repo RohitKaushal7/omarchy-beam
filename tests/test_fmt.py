@@ -64,6 +64,12 @@ class SettingsFromConfig(unittest.TestCase):
         self.assertEqual(s.home_currency, "EUR")
         self.assertEqual(s.idle_exit_minutes, 1)
 
+    def test_blank_list_and_bool_numbers_fall_back_to_defaults(self):
+        from beam.types import Settings
+        s = Settings.from_config({"calc": {"significantDigits": True}, "jev": {"cacheSize": " "},
+                                  "engine": {"idleExitMinutes": []}})
+        self.assertEqual((s.significant_digits, s.jev_cache_size, s.idle_exit_minutes), (10, 500, 10))
+
     def test_none(self):
         from beam.types import Settings
         self.assertEqual(Settings.from_config(None), Settings())

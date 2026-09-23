@@ -117,3 +117,14 @@ test("rememberRecent puts the pick first, drops its older copy and caps the list
   assert.equal(many[0].key, "k24")
   assert.deepEqual(C.rememberRecent(null, C.row({ key: "x" }), 20).map(r => r.key), ["x"])
 })
+
+test("blank, list and boolean values in number settings fall back to defaults", () => {
+  const s = Settings.merge({ jev: { minChars: [], cacheSize: " ", debounceMs: "" },
+    calc: { significantDigits: true }, look: { width: [900] } })
+  assert.equal(s.jev.minChars, 3)
+  assert.equal(s.jev.cacheSize, 500)
+  assert.equal(s.jev.debounceMs, 350)
+  assert.equal(s.calc.significantDigits, 10)
+  assert.equal(s.look.width, 560)
+  assert.equal(Settings.merge({ jev: { minChars: "4" } }).jev.minChars, 4)
+})

@@ -29,6 +29,8 @@ def _bool(value: Any, default: bool) -> bool:
 
 
 def _int(value: Any, default: int, lo: int, hi: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return default
     try:
         n = int(value)
     except (TypeError, ValueError):

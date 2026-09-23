@@ -114,3 +114,24 @@ test("an app named exactly like the query outranks a same-named menu action", ()
   const rows = Menu.search(t.items, Menu.searchable(t.items, t.itemOrder, {}).concat(apps), "chromium")
   assert.equal(rows[0].entry.id, "apps.chromium")
 })
+
+test("allowedBySources honours the apps and actions toggles", () => {
+  const app = Menu.appItem({ id: "slack", name: "Slack" }, 0)
+  const action = { id: "trigger.toggle.nightlight", kind: "action" }
+  const submenu = { id: "setup", kind: "menu" }
+  const both = { apps: true, actions: true }
+  assert.equal(Menu.allowedBySources(app, both), true)
+  assert.equal(Menu.allowedBySources(app, { apps: false, actions: true }), false)
+  assert.equal(Menu.allowedBySources(action, { apps: true, actions: false }), false)
+  assert.equal(Menu.allowedBySources(submenu, { apps: true, actions: false }), false)
+  assert.equal(Menu.allowedBySources(submenu, { apps: false, actions: true }), true)
+})
+
+test("search ignores text beyond 200 characters and stays fast on pasted walls of text", () => {
+  const t = tree(SAMPLE)
+  const entries = Menu.searchable(t.items, t.itemOrder, {})
+  const wall = ("night ").repeat(2000)
+  const start = Date.now()
+  assert.deepEqual(Menu.search(t.items, entries, wall), [])
+  assert.ok(Date.now() - start < 20)
+})

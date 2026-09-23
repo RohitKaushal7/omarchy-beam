@@ -159,6 +159,9 @@ class Server:
             except AuthError:
                 self.send({"op": "jev", "id": rid, "pick": None, "status": "auth-failed"})
                 continue
+            except Exception as e:  # never let one bad reply stop the worker
+                print(f"beam: jev lookup failed: {e!r}", file=sys.stderr)
+                pick, cached = None, False
             if rid == self._jev_latest:  # a newer query makes this reply stale
                 self.send({"op": "jev", "id": rid, "pick": self._pick_json(pick), "cached": cached})
 
