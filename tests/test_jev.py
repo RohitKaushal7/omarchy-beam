@@ -5,7 +5,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-import helpers  # noqa: F401
+from helpers import read
 from beam import jev
 
 
@@ -118,7 +118,7 @@ class Picks(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         c = client(boom, tmp)
         self.assertEqual(c.pick("q", jev.Catalog(items(3))), (None, False))
-        log = open(os.path.join(tmp, "usage.jsonl")).read()
+        log = read(os.path.join(tmp, "usage.jsonl"))
         self.assertIn("HTTP 529", log)
 
     def test_auth_error_disables(self):
@@ -134,7 +134,7 @@ class Picks(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         c = client(fake_post({"Item 3 — Setup": 0.9}), tmp)
         c.pick("my secret query", jev.Catalog(items(10)))
-        log = open(os.path.join(tmp, "usage.jsonl")).read()
+        log = read(os.path.join(tmp, "usage.jsonl"))
         self.assertNotIn("secret", log)
         self.assertIn('"tokens": 100', log)
         self.assertIn("1 API calls", jev.format_stats(os.path.join(tmp, "usage.jsonl")))
@@ -184,6 +184,7 @@ class HttpPost(unittest.TestCase):
     def tearDown(self):
         jev.API_URL = self.old_url
         self.server.shutdown()
+        self.server.server_close()
 
     def test_success_and_auth_header(self):
         Handler.status = 200

@@ -8,7 +8,7 @@ import threading
 import time
 import unittest
 
-from helpers import BIN, make_ctx
+from helpers import BIN, make_ctx, read
 from beam import currency, jev
 from beam.protocol import Server
 
@@ -93,7 +93,7 @@ class Recent(unittest.TestCase):
         for key in ("app:a", "action:b", "app:a"):
             s.handle(json.dumps({"op": "recent", "entry": {"key": key, "kind": key.split(":")[0], "label": key,
                                                             "junk": "x"}}))
-        recent = json.load(open(s.recent_path))
+        recent = json.loads(read(s.recent_path))
         self.assertEqual([r["key"] for r in recent], ["app:a", "action:b"])
         self.assertNotIn("junk", recent[0])
         self.assertEqual(recent[0]["url"], "")
@@ -102,7 +102,7 @@ class Recent(unittest.TestCase):
         s, _ = server()
         for i in range(30):
             s.handle(json.dumps({"op": "recent", "entry": {"key": f"k{i}"}}))
-        self.assertEqual(len(json.load(open(s.recent_path))), 20)
+        self.assertEqual(len(json.loads(read(s.recent_path))), 20)
 
 
 class JevOps(unittest.TestCase):
@@ -183,6 +183,7 @@ class EndToEnd(unittest.TestCase):
         finally:
             proc.stdin.close()
             proc.wait(5)
+            proc.stdout.close()
 
 
 if __name__ == "__main__":
