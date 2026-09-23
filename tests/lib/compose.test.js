@@ -1,0 +1,85 @@
+const test = require("node:test")
+const assert = require("node:assert/strict")
+const C = require("../../lib/compose.js")
+const Settings = require("../../lib/settings.js")
+
+const action = (id, label) => C.entryRow({ id, kind: "action", label, icon: "", action: "run-" + id }, "", "", false)
+
+test("rows always carry every role", () => {
+  const r = C.row({ key: "k", label: "L" })
+  assert.equal(Object.keys(r).length, 17)
+  assert.equal(r.jev, false)
+  assert.equal(r.icon, "")
+})
+
+test("compose order: answers, lead, results, fallbacks", () => {
+  const rows = C.compose({
+    answers: C.answerRows([{ value: "178.5", copy: "178.5", detail: "357 ÷ 2" }]),
+    lead: [C.urlRow("https://x.com")],
+    results: [action("a", "A")],
+    fallbacks: [C.agentRow("q")]
+  })
+  assert.deepEqual(rows.map(r => r.kind), ["answer", "url", "action", "agent"])
+  assert.equal(rows[0].copy, "178.5")
+})
+
+test("late ✦ row goes after answers/leads and keeps the selected item", () => {
+  const rows = [C.row({ key: "search:yt", kind: "web" }), action("a", "A"), action("b", "B"), C.agentRow("q")]
+  const selected = "action:b"
+  const star = Object.assign(action("c", "C"), { jev: true })
+  const out = C.lateInsert(rows, star)
+  assert.equal(out.index, 1)
+  assert.deepEqual(out.rows.map(r => r.key), ["search:yt", "action:c", "action:a", "action:b", "agent"])
+  assert.equal(C.indexOfKey(out.rows, selected), 3)
+  assert.equal(C.indexOfKey(rows, selected), 2)
+})
+
+test("late ✦ for an existing row marks it without moving anything", () => {
+  const rows = [action("a", "A"), action("b", "B")]
+  const out = C.lateInsert(rows, Object.assign(action("b", "B"), { jev: true }))
+  assert.equal(out.index, -1)
+  assert.equal(out.marked, 1)
+  assert.deepEqual(out.rows.map(r => r.key), ["action:a", "action:b"])
+  assert.equal(out.rows[1].jev, true)
+  assert.equal(rows[1].jev, false)
+})
+
+test("late answers go on top", () => {
+  const rows = [action("a", "A"), C.agentRow("q")]
+  const out = C.lateInsert(rows, C.answerRows([{ value: "4", copy: "4" }])[0])
+  assert.equal(out.index, 0)
+})
+
+test("jev gate", () => {
+  const base = { enabled: true, keyAvailable: true, text: "screen warmer", minChars: 3 }
+  assert.equal(C.jevWanted(base), true)
+  for (const k of ["hasAnswers", "chip", "url", "inlineSearch", "strongLocal"])
+    assert.equal(C.jevWanted(Object.assign({}, base, { [k]: true })), false, k)
+  assert.equal(C.jevWanted(Object.assign({}, base, { text: "ab" })), false)
+  assert.equal(C.jevWanted(Object.assign({}, base, { text: "123" })), false)
+  assert.equal(C.jevWanted(Object.assign({}, base, { keyAvailable: false })), false)
+  assert.equal(C.jevWanted(Object.assign({}, base, { text: "a".repeat(300) })), false)
+})
+
+test("settings merge validates types and bounds", () => {
+  const s = Settings.merge({ sources: { units: false, apps: "yes" }, jev: { debounceMs: 5, minChars: "4" },
+    calc: { grouping: "weird" }, look: { width: 99999 }, search: { engines: "nope" }, junk: 1 })
+  assert.equal(s.sources.units, false)
+  assert.equal(s.sources.apps, true)
+  assert.equal(s.jev.debounceMs, 100)
+  assert.equal(s.jev.minChars, 4)
+  assert.equal(s.calc.grouping, "auto")
+  assert.equal(s.look.width, 1000)
+  assert.deepEqual(s.search.engines, [])
+  assert.equal(s.junk, undefined)
+  assert.deepEqual(Settings.merge(null), Settings.merge({}))
+})
+
+test("settings withValue and findEntry", () => {
+  const s = Settings.withValue(Settings.merge({}), "jev.enabled", false)
+  assert.equal(s.jev.enabled, false)
+  assert.deepEqual(Settings.withValue(s, "nope.path", 1), s)
+  assert.deepEqual(Settings.findEntry({ plugins: [{ id: "a" }, { id: "dev.reuk.beam", x: 1 }] }, "dev.reuk.beam"),
+    { id: "dev.reuk.beam", x: 1 })
+  assert.equal(Settings.findEntry({}, "dev.reuk.beam"), null)
+})
