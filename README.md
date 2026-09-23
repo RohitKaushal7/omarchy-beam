@@ -47,15 +47,19 @@ Reboot, remove, update and install actions ask for a second Enter.
 
 <table>
   <tr>
+    <td><img src="screenshots/actions.png" alt="Omarchy actions with their keybindings: lock"></td>
+    <td><img src="screenshots/jev.png" alt="Jev: change wallpaper finds Background"></td>
+  </tr>
+  <tr>
     <td><img src="screenshots/calculator.png" alt="Inline calculator: 2400 + 18% = 2,832"></td>
     <td><img src="screenshots/units.png" alt="Unit conversion: 5'11&quot; in cm = 180.34 cm"></td>
   </tr>
   <tr>
+    <td><img src="screenshots/currency.png" alt="Currency: 100 USD in INR"></td>
     <td><img src="screenshots/time.png" alt="Time zones: 3pm IST in PST = 02:30"></td>
-    <td><img src="screenshots/developer.png" alt="Developer values: #ff8800 as rgb and hsl"></td>
   </tr>
   <tr>
-    <td><img src="screenshots/jev.png" alt="Jev: change wallpaper finds Background"></td>
+    <td><img src="screenshots/developer.png" alt="Developer values: #ff8800 as rgb and hsl"></td>
     <td><img src="screenshots/search.png" alt="Search shortcut chip: YouTube lofi beats"></td>
   </tr>
 </table>
