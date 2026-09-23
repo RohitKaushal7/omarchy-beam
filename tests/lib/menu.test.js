@@ -135,3 +135,11 @@ test("search ignores text beyond 200 characters and stays fast on pasted walls o
   assert.deepEqual(Menu.search(t.items, entries, wall), [])
   assert.ok(Date.now() - start < 20)
 })
+
+test("keybinding hints are never shown for install, remove or update entries", () => {
+  assert.equal(Menu.hintAllowed({ id: "style.theme", kind: "action" }), true)
+  assert.equal(Menu.hintAllowed({ id: "install.style.theme", kind: "action" }), false)
+  assert.equal(Menu.hintAllowed({ id: "remove.theme", kind: "action" }), false)
+  assert.equal(Menu.hintAllowed({ id: "update.system", kind: "action" }), false)
+  assert.equal(Menu.hintAllowed({ id: "apps.x", kind: "app" }), false)
+})

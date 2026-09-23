@@ -43,6 +43,23 @@ Keys: **↑/↓** move · **Enter** run or copy · **Tab** search chip ·
 
 Reboot, remove, update and install actions ask for a second Enter.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="screenshots/calculator.png" alt="Inline calculator: 2400 + 18% = 2,832"></td>
+    <td><img src="screenshots/units.png" alt="Unit conversion: 5'11&quot; in cm = 180.34 cm"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/time.png" alt="Time zones: 3pm IST in PST = 02:30"></td>
+    <td><img src="screenshots/developer.png" alt="Developer values: #ff8800 as rgb and hsl"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/jev.png" alt="Jev: change wallpaper finds Background"></td>
+    <td><img src="screenshots/search.png" alt="Search shortcut chip: YouTube lofi beats"></td>
+  </tr>
+</table>
+
 ## Calculator and conversions
 
 | Kind | Examples |
@@ -92,9 +109,11 @@ Jev is TypeSafe's fast classification model. When the name search finds
 nothing strong and you pause typing, Beam asks Jev which app or action you
 mean and adds it as a ✦ row. It never runs anything by itself.
 
-Put your key in `~/.config/typesafe/api_key` (the shell does not see
-variables from your terminal's rc files), or set `TYPESAFE_API_KEY` in the
-shell's session environment. Without a key everything else works as normal.
+Get a key from the [TypeSafe console](https://console.typesafe.ai), then
+either export `TYPESAFE_API_KEY` from your shell profile (Beam asks your login
+shell for it, since the desktop session does not load rc files) or put the key
+in `~/.config/typesafe/api_key`. Without a key everything else works as
+normal; **Ctrl+,** shows whether Beam found one.
 
 Usage and cost: `python3 ~/.config/omarchy/plugins/dev.reuk.beam/bin/beam.py stats`.
 
@@ -102,8 +121,12 @@ Usage and cost: `python3 ~/.config/omarchy/plugins/dev.reuk.beam/bin/beam.py sta
 
 **Ctrl+,** (or type `beam settings`) opens the settings view: turn each source
 on or off, tune Jev, the calculator, the web-search engine, confirmations,
-width and rows. Settings are stored on Beam's entry in
+width and rows. It is keyboard-first: **↑/↓** move, **←/→** change numbers and
+choices (**Shift** for bigger steps), **Enter** or **Space** flips a switch or
+edits text, **Esc** goes back. Settings are stored on Beam's entry in
 `~/.config/omarchy/shell.json`.
+
+<img src="screenshots/settings.png" alt="Beam settings" width="560">
 
 ## Privacy
 

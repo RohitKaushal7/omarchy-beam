@@ -113,6 +113,7 @@ Item {
     return JSON.stringify({ hasShell: !!root.shell, opened: root.opened, engineReady: engine.ready, engineDisabled: engine.disabled,
                             jev: root.jevStatus, entries: menuSource.entries.length,
                             appLibrary: root.shell && root.shell.appLibrary ? "shell" : "beam",
+                            card: { x: card.x, y: card.y, width: card.width, height: card.height },
                             settingsCursor: settingsView.cursor,
                             settingsEditing: settingsView.editing,
                             settings: root.settings })
@@ -143,7 +144,7 @@ Item {
   }
 
   function entryRow(entry) {
-    var hint = root.settings.behavior.keybindingHints && entry.kind === "action" ? menuSource.hintFor(entry.label) : ""
+    var hint = root.settings.behavior.keybindingHints && Menu.hintAllowed(entry) ? menuSource.hintFor(entry.label) : ""
     var risky = root.settings.behavior.confirmRisky && Menu.isRisky(entry)
     return Compose.entryRow(entry, menuSource.detailFor(entry), hint, risky)
   }

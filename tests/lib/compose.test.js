@@ -128,3 +128,11 @@ test("blank, list and boolean values in number settings fall back to defaults", 
   assert.equal(s.look.width, 560)
   assert.equal(Settings.merge({ jev: { minChars: "4" } }).jev.minChars, 4)
 })
+
+test("answer rows get an icon for their kind", () => {
+  const rows = C.answerRows([{ value: "1", kind: "calculator" }, { value: "2", kind: "units" },
+    { value: "3", kind: "currency" }, { value: "4", kind: "time" }, { value: "5", kind: "developer" }, { value: "6" }])
+  const icons = rows.map(r => r.icon)
+  assert.equal(new Set(icons.slice(0, 5)).size, 5)
+  assert.equal(icons[5], icons[0])  // unknown kind falls back to the calculator icon
+})
