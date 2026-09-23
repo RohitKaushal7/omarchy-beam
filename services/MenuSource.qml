@@ -78,6 +78,7 @@ Item {
     var out = []
     for (var i = 0; i < source.entries.length; i++) {
       var entry = source.entries[i]
+      if (!Menu.jevEligible(entry)) continue
       out.push({ key: source.keyFor(entry), label: entry.label,
                  path: entry.kind === "app" ? (entry.description || "App") : Menu.parentPathFor(source.items, entry.id) })
     }

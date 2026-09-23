@@ -115,6 +115,29 @@ class Store(unittest.TestCase):
         detail = currency.parse("1 usd in inr", ctx_with(old))[0].detail
         self.assertIn("rates from ", detail)
 
+    def test_offline_first_use_says_unavailable_then_retries_later(self):
+        now = [1_790_000_000.0]
+        calls = []
+
+        def offline():
+            calls.append(1)
+            raise OSError("offline")
+
+        store = currency.RateStore(os.path.join(tempfile.mkdtemp(), "r.json"), 24, fetch=offline,
+                                   clock=lambda: now[0])
+        ctx = ctx_with(store)
+        self.assertTrue(currency.parse("100 usd in inr", ctx)[0].pending)
+        for _ in range(100):
+            if calls and not store._fetching:
+                break
+            time.sleep(0.01)
+        a = currency.parse("100 usd in inr", ctx)[0]
+        self.assertEqual((a.value, a.pending, a.copy), ("Rates unavailable", False, ""))
+        self.assertIn("offline", a.detail)
+        self.assertEqual(len(calls), 1)              # no refetch on every keystroke
+        now[0] += 301
+        self.assertTrue(currency.parse("100 usd in inr", ctx)[0].pending)  # tries again later
+
     def test_bad_payload_rejected(self):
         store = store_with(fetch=lambda: {"result": "error"})
         self.assertFalse(store.refresh_now())

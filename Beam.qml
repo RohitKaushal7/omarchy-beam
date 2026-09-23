@@ -46,6 +46,8 @@ Item {
   property string jevStatus: "unknown"
   property bool animateInsert: false
   property int layoutSerial: 0
+  // "Press Enter again" is for the row it was armed on; moving away cancels it.
+  onSelectedKeyChanged: if (root.confirmKey && root.selectedKey !== root.confirmKey) root.confirmKey = ""
 
   // Omarchy menu surface tokens, so themes that style the menu style Beam.
   property color background: Color.menu.background
@@ -211,9 +213,9 @@ Item {
     root.pendingLocal = null
     root.lastLocal = local
     var next = Compose.compose({ answers: Compose.answerRows(answers), lead: local.lead,
-                                 results: local.results, fallbacks: local.fallbacks })
+                                 results: local.results, fallbacks: local.fallbacks, text: root.filterText.trim() })
     root.replaceRows(next)
-    root.selectedKey = next.length > 0 ? next[0].key : ""
+    root.selectedKey = Compose.firstSelectableKey(next)
     root.scheduleJev(answers.length > 0, local)
     if (root.enterQueued) {
       root.enterQueued = false
@@ -234,6 +236,7 @@ Item {
   // Late data may only insert (rule 2); the highlight keeps its key (rule 1).
   function lateInsert(newRow) {
     var out = Compose.lateInsert(root.rows, newRow)
+    if (out.removed >= 0) displayModel.remove(out.removed)  // the "No matches" message
     if (out.index < 0) {
       if (out.marked >= 0) displayModel.setProperty(out.marked, "jev", true)
       root.rows = out.rows
@@ -242,7 +245,7 @@ Item {
     root.animateInsert = true
     displayModel.insert(out.index, newRow)
     root.rows = out.rows
-    if (!root.selectedKey) root.selectedKey = newRow.key
+    if (!root.selectedKey || root.selectedKey === "empty") root.selectedKey = newRow.key
     root.layoutSerial += 1
     Qt.callLater(root.revealCursor)
   }
@@ -317,10 +320,8 @@ Item {
   // ── keys and actions ────────────────────────────────────────────────────
 
   function move(delta) {
-    var n = root.rows.length
-    if (n === 0) return
-    var i = root.selectedIndex < 0 ? 0 : root.selectedIndex
-    var next = Math.abs(delta) === 1 ? (i + delta + n) % n : Math.max(0, Math.min(n - 1, i + delta))
+    var next = Compose.nextSelectable(root.rows, root.selectedIndex, delta)
+    if (next < 0) return
     root.selectedKey = root.rows[next].key
     root.confirmKey = ""
     pointerGate.reset()
@@ -328,6 +329,7 @@ Item {
   }
 
   function tab() {
+    root.confirmKey = ""
     var t = root.filterText.trim()
     if (!root.settings.sources.shortcuts || root.chip) return
     var engineChip = Shortcuts.chipFor(t, root.engines)
@@ -356,6 +358,7 @@ Item {
   }
 
   function paste() {
+    root.confirmKey = ""
     if (!pasteProc.running) pasteProc.running = true
   }
 
@@ -364,6 +367,7 @@ Item {
   }
 
   function copySelected() {
+    root.confirmKey = ""
     if (root.selectedIndex < 0) return
     var r = root.rows[root.selectedIndex]
     var value = r.kind === "answer" ? r.copy : (r.kind === "url" ? r.url : (r.kind === "action" ? r.action : ""))
@@ -714,7 +718,7 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onPositionChanged: function(mouse) {
-                  if (pointerGate.moved(resultRow, mouse)) root.selectedKey = resultRow.key
+                  if (resultRow.kind !== "empty" && pointerGate.moved(resultRow, mouse)) root.selectedKey = resultRow.key
                 }
                 onClicked: {
                   root.selectedKey = resultRow.key

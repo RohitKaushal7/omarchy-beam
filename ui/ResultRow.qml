@@ -92,7 +92,7 @@ BorderSurface {
       width: parent.width
       text: row.confirming ? "Press Enter again to " + row.label : row.label
       color: row.confirming ? Color.urgent : (row.hasCursor ? row.selectedText : row.foreground)
-      opacity: row.pending ? 0.6 : 1
+      opacity: row.pending || row.kind === "empty" ? 0.6 : 1
       font.family: row.fontFamily
       font.pixelSize: Style.font.heading
       font.weight: row.isAnswer ? Font.DemiBold : Font.Medium

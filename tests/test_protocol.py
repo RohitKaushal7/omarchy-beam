@@ -75,6 +75,13 @@ class Ops(unittest.TestCase):
         s.handle(json.dumps({"op": "answer", "id": 2, "q": "357/2"}))
         self.assertEqual(out.messages()[-1]["answers"], [])
 
+    def test_config_resizes_the_jev_cache(self):
+        tmp = tempfile.mkdtemp()
+        client = jev.JevClient(lambda: ("k", "file"), post=lambda k, p: {}, cache_size=500)
+        s = Server(Out(), make_ctx(locale="en_US.UTF-8"), tmp, tmp, jev_client=client)
+        s.handle(json.dumps({"op": "config", "settings": {"jev": {"cacheSize": 7}}}))
+        self.assertEqual(client._cache_size, 7)
+
     def test_used_sets_ans(self):
         s, out = server()
         s.handle(json.dumps({"op": "used", "copy": "178.5"}))
@@ -164,6 +171,20 @@ class Rates(unittest.TestCase):
         self.assertTrue(wait_for(lambda: any(m.get("update") for m in out.messages())))
         update = [m for m in out.messages() if m.get("update")][0]
         self.assertEqual((update["id"], update["answers"][0]["value"]), (4, "₹8,000.00"))
+
+
+class RatesOffline(unittest.TestCase):
+    def test_pending_answer_becomes_unavailable_when_the_fetch_fails(self):
+        def offline():
+            raise OSError("offline")
+
+        ctx = make_ctx(locale="en_IN.UTF-8")
+        ctx.rates = currency.RateStore(os.path.join(tempfile.mkdtemp(), "r.json"), fetch=offline)
+        s, out = server(ctx=ctx)
+        s.handle(json.dumps({"op": "answer", "id": 8, "q": "100 usd in inr"}))
+        self.assertTrue(wait_for(lambda: any(m.get("update") for m in out.messages())))
+        update = [m for m in out.messages() if m.get("update")][0]
+        self.assertEqual((update["id"], update["answers"][0]["value"]), (8, "Rates unavailable"))
 
 
 class Idle(unittest.TestCase):

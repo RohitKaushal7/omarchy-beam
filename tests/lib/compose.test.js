@@ -136,3 +136,31 @@ test("answer rows get an icon for their kind", () => {
   assert.equal(new Set(icons.slice(0, 5)).size, 5)
   assert.equal(icons[5], icons[0])  // unknown kind falls back to the calculator icon
 })
+
+test("with only fallback rows, compose leads with a non-selectable No matches row", () => {
+  const rows = C.compose({ answers: [], lead: [], results: [], fallbacks: [C.agentRow("zzz")], text: "zzz" })
+  assert.deepEqual(rows.map(r => r.kind), ["empty", "agent"])
+  assert.equal(rows[0].label, "No matches for “zzz”")
+  assert.equal(C.selectable(rows[0]), false)
+  assert.equal(C.firstSelectableKey(rows), "agent")
+  const some = C.compose({ results: [action("a", "A")], fallbacks: [C.agentRow("a")], text: "a" })
+  assert.ok(!some.some(r => r.kind === "empty"))
+  assert.deepEqual(C.compose({ fallbacks: [], text: "" }), [])
+})
+
+test("nextSelectable skips the No matches row", () => {
+  const rows = C.compose({ fallbacks: [C.webRow({ keyword: "g", name: "Google" }, "zzz"), C.agentRow("zzz")], text: "zzz" })
+  assert.equal(C.nextSelectable(rows, 1, 1), 2)
+  assert.equal(C.nextSelectable(rows, 2, 1), 1)   // wraps past the empty row
+  assert.equal(C.nextSelectable(rows, 1, -1), 2)
+  assert.equal(C.nextSelectable(rows, -1, 1), 1)
+})
+
+test("a late answer or ✦ row replaces the No matches row", () => {
+  const rows = C.compose({ fallbacks: [C.agentRow("zzz")], text: "zzz" })
+  const out = C.lateInsert(rows, C.answerRows([{ value: "4", copy: "4" }])[0])
+  assert.deepEqual(out.rows.map(r => r.kind), ["answer", "agent"])
+  assert.equal(out.removed, 0)
+  const star = C.lateInsert(rows, Object.assign(action("n", "N"), { jev: true }))
+  assert.deepEqual(star.rows.map(r => r.kind), ["action", "agent"])
+})

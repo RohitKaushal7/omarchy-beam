@@ -107,6 +107,25 @@ class Picks(unittest.TestCase):
             c.pick(q, cat)
         self.assertEqual(len(c._cache), 3)
 
+    def test_cache_size_can_change_at_runtime(self):
+        c = client(fake_post({}), cache_size=10)
+        cat = jev.Catalog(items(5))
+        for q in "abcde":
+            c.pick(q, cat)
+        c.set_cache_size(2)
+        self.assertEqual(len(c._cache), 2)
+        c.set_cache_size(0)
+        self.assertEqual(len(c._cache), 0)
+        c.pick("f", cat)
+        self.assertEqual(len(c._cache), 0)
+
+    def test_zero_size_loads_nothing(self):
+        tmp = tempfile.mkdtemp()
+        full = client(fake_post({}), tmp, cache_size=10)
+        for q in "abc":
+            full.pick(q, jev.Catalog(items(5)))
+        self.assertEqual(len(client(fake_post({}), tmp, cache_size=0)._cache), 0)
+
     def test_no_key(self):
         c = jev.JevClient(lambda: (None, "no-key"), post=fake_post({}))
         self.assertEqual(c.pick("q", jev.Catalog(items(3))), (None, False))

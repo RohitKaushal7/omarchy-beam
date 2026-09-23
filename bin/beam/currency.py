@@ -15,6 +15,7 @@ from . import fmt
 from .types import Answer, Context
 
 RATES_URL = "https://open.er-api.com/v6/latest/USD"
+RETRY_AFTER = 300  # seconds before another fetch after a failed one
 ATTRIBUTION = "Rates By Exchange Rate API"
 
 ISO = set("""AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF BMD BND BOB BRL BSD BTN
@@ -73,6 +74,7 @@ class RateStore:
         self._lock = threading.Lock()
         self._fetching = False
         self._data: Optional[dict] = None
+        self.last_failure: Optional[float] = None
         self.listeners: List[Callable[[bool], None]] = []  # told after every background refresh
         self._load()
 
@@ -95,7 +97,15 @@ class RateStore:
         age = self.age_seconds()
         return age is None or age > self.refresh_hours * 3600
 
+    def recently_failed(self) -> bool:
+        return self.last_failure is not None and self._clock() - self.last_failure < RETRY_AFTER
+
     def refresh_now(self) -> bool:
+        ok = self._refresh()
+        self.last_failure = None if ok else self._clock()
+        return ok
+
+    def _refresh(self) -> bool:
         try:
             payload = self._fetch()
             rates = payload.get("rates") if isinstance(payload, dict) else None
@@ -217,9 +227,12 @@ def parse(q: str, ctx: Context) -> Optional[List[Answer]]:
     store: RateStore = ctx.rates
     rates = store.rates()
     if rates is None:
+        if store.recently_failed():
+            return [Answer(value="Rates unavailable", copy="", detail=f"{label} · offline, will retry",
+                           kind="currency")]
         store.refresh_async()
         return [Answer(value="Fetching rates…", copy="", detail=label, kind="currency", pending=True)]
-    if store.stale():
+    if store.stale() and not store.recently_failed():
         store.refresh_async()
     if src not in rates or target not in rates:
         return None

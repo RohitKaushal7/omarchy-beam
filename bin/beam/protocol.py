@@ -78,6 +78,8 @@ class Server:
 
     def op_config(self, msg: dict) -> None:
         self.ctx.settings = Settings.from_config(msg.get("settings"))
+        if hasattr(self.jev, "set_cache_size"):
+            self.jev.set_cache_size(self.ctx.settings.jev_cache_size)
         if self.ctx.rates is not None:
             self.ctx.rates.refresh_hours = self.ctx.settings.rates_refresh_hours
         self.send({"op": "config", "jev": self.jev_status()})
@@ -166,8 +168,9 @@ class Server:
                 self.send({"op": "jev", "id": rid, "pick": self._pick_json(pick), "cached": cached})
 
     def _rates_refreshed(self, ok: bool) -> None:
+        # Success fills in "Fetching rates…"; failure turns it into "Rates unavailable".
         latest = self.latest_answer
-        if not ok or latest is None:
+        if latest is None:
             return
         rid, q = latest
         results = answer(q, self.ctx)
