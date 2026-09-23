@@ -136,15 +136,19 @@ check is code, based on the menu id path — never on Jev.
 manifest.json          kinds ["menu"], keepLoaded, entryPoints.menu = Beam.qml
 Beam.qml               window, key catcher, list composition, stability rules,
                        engine process ownership, settings loading
-ui/ResultRow.qml       menu-style row (icon · label · breadcrumb · hint · ✦)
-ui/AnswerRow.qml       calculator answer row with "Copied" flash
+ui/ResultRow.qml       menu-style row (icon · label · breadcrumb · hint · ✦);
+                       answer rows (large value, "Copied" flash) use it too
 ui/Chip.qml            search-engine chip
 ui/SettingsView.qml    settings screen built from qs.Ui controls
+services/Engine.qml    helper process: lazy start, JSON lines, crash policy
+services/MenuSource.qml menu JSONC + guards + apps + keybinding hints
+services/SettingsStore.qml settings read from / written to shell.json
 lib/*.js               pure logic, no QML types (unit-tested with node):
   menu.js              JSONC strip/parse, tree, paths, scoring, risky-path check
   shortcuts.js         built-in engines, keyword/domain matching, URL detection
   compose.js           merges sources into rows, identity keys, insertion rules
   precheck.js          "could this be a calculator query?" gate
+  settings.js          defaults, validation, shell.json entry lookup
 bin/beam.py            engine entry: `serve` (JSON lines), `eval`, `stats`, `selftest`
 bin/beam/              stdlib-only Python package
   protocol.py          request loop, cancellation, idle exit
@@ -242,7 +246,7 @@ dev`, `gg ai`) must be rejected by every gate (tested explicitly).
   `50 eur` (→ home currency). Home currency `auto` = from `LC_MONETARY`/`LANG`
   (e.g. `en_IN` → INR), else USD.
 - **Time and dates:** `3pm ist in pst`, `now in tokyo`, `time in london`,
-  `days until dec 25`, `today + 90 days`, `tomorrow in 3 weeks`,
+  `days until dec 25`, `today + 90 days`, `in 3 weeks`,
   `2026-01-15 - 2025-06-01`, `what day is 15 aug 2027`. `zoneinfo` plus a
   curated abbreviation and city map.
 - **Developer values:** `0xff`, `0b1010`, `0o17`, `255 in hex|bin|oct`,
@@ -293,10 +297,17 @@ Built-in engines (each disable-able, overridable, extendable in settings):
 - Actions run through `Quickshell.execDetached(["bash", "-lc", action])` — the
   same trust model as the menu, whose JSONC files are the user's/Omarchy's own
   config. Beam closes before running.
-- Keybinding hints: parsed from `omarchy menu keybindings --print` once per
-  session (cached), matched to actions by command string and label.
+- Keybinding hints: parsed from `omarchy menu keybindings --print` (its output
+  has key combos and descriptions, not commands), matched to an action when
+  the description contains the action's label as whole words and no other
+  binding does; labels under 4 characters never match.
+- `when:` guards are evaluated like the menu; `checked:` guards are not (Beam
+  shows no ✓ markers). User JSONC entries replace default entries exactly as
+  the Omarchy menu merges them, so both show the same rows.
 - Apps: `shell.appLibrary.sortedEntries(query)`, `iconSource`, `launch`.
-- Recent picks: last 20 activations (id + kind), shown up to 6 on empty query.
+- Recent picks: last 20 activations, written by the engine (`recent` op) to
+  `~/.local/state/beam/recent.json` and read by the plugin through a watched
+  FileView; shown up to 6 on an empty query, only if the item still exists.
 
 ## 7. Settings
 
