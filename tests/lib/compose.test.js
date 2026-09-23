@@ -104,3 +104,16 @@ test("applyEntry refuses to touch an unreadable config or one without Beam's ent
   assert.equal(Settings.applyEntry(JSON.stringify({ plugins: [] }), "dev.reuk.beam", next), null)
   assert.equal(Settings.applyEntry("", "dev.reuk.beam", next), null)
 })
+
+test("rememberRecent puts the pick first, drops its older copy and caps the list", () => {
+  const list = [{ key: "app:a" }, { key: "menu:b" }]
+  const next = C.rememberRecent(list, C.row({ key: "menu:b", kind: "menu", label: "B" }), 20)
+  assert.deepEqual(next.map(r => r.key), ["menu:b", "app:a"])
+  assert.equal(next[0].label, "B")
+  assert.deepEqual(list.map(r => r.key), ["app:a", "menu:b"])  // input untouched
+  let many = []
+  for (let i = 0; i < 25; i++) many = C.rememberRecent(many, C.row({ key: "k" + i }), 20)
+  assert.equal(many.length, 20)
+  assert.equal(many[0].key, "k24")
+  assert.deepEqual(C.rememberRecent(null, C.row({ key: "x" }), 20).map(r => r.key), ["x"])
+})

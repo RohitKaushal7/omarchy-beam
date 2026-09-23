@@ -358,8 +358,12 @@ Item {
     if (value) root.copyText(value)
   }
 
+  // The helper persists recent.json; the in-memory list updates at once, since
+  // a FileView watching a file that did not exist yet never sees it appear.
   function remember(r) {
-    if (root.settings.sources.recent) engine.send({ op: "recent", entry: r })
+    if (!root.settings.sources.recent) return
+    root.recent = Compose.rememberRecent(root.recent, r, 20)
+    engine.send({ op: "recent", entry: r })
   }
 
   function launch(argv) {
