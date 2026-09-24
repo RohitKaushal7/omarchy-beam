@@ -10,6 +10,7 @@ import "lib/menu.js" as Menu
 import "lib/shortcuts.js" as Shortcuts
 import "lib/precheck.js" as Precheck
 import "lib/compose.js" as Compose
+import "lib/proc.js" as Proc
 
 // Beam: one box for apps, Omarchy actions, inline answers, search shortcuts
 // and URLs. Stability rules (spec §2.5): only keystrokes rebuild the list;
@@ -361,8 +362,10 @@ Item {
     if (!pasteProc.running) pasteProc.running = true
   }
 
+  // The text goes to wl-copy on stdin, never on a command line.
   function copyText(text) {
-    Util.execArgv(["wl-copy", "--", text])
+    copyProc.pending.push(String(text))
+    if (!copyProc.running) copyProc.next()
   }
 
   function copySelected() {
@@ -474,6 +477,7 @@ Item {
 
   Engine {
     id: engine
+    wantKey: root.settings.jev.enabled
     onMessage: function(msg) { root.onEngineMessage(msg) }
   }
 
@@ -506,16 +510,37 @@ Item {
   }
 
   // Ctrl+V: clipboard text, newlines flattened, capped (pastes are rarely
-  // searches; long ones still work for web search and Ask agent).
+  // searches; long ones still work for web search and Ask agent). wl-paste
+  // gets 2 s and 4 KiB, so a huge or stalled clipboard can't grow or wedge
+  // the shell; 1000 characters always fit in 4 KiB of UTF-8.
   Process {
     id: pasteProc
-    command: ["wl-paste", "--no-newline", "--type", "text"]
+    command: Proc.bounded(["/usr/bin/wl-paste", "--no-newline", "--type", "text"], 2, 4096)
     stdout: StdioCollector { id: pasteOut; waitForEnd: true }
     onExited: function(exitCode) {
       if (exitCode !== 0 || !root.opened) return
       var text = String(pasteOut.text || "").replace(/\s*[\r\n]+\s*/g, " ").slice(0, 1000)
       if (text) root.setText(root.filterText + text)
     }
+  }
+
+  Process {
+    id: copyProc
+    property var pending: []
+    property string current: ""
+    function next() {
+      if (copyProc.pending.length === 0) return
+      copyProc.current = copyProc.pending.shift()
+      copyProc.stdinEnabled = true
+      copyProc.running = true
+    }
+    command: ["/usr/bin/wl-copy"]
+    onStarted: {
+      copyProc.write(copyProc.current)
+      copyProc.current = ""
+      copyProc.stdinEnabled = false  // closes stdin; wl-copy then serves the clipboard
+    }
+    onExited: copyProc.next()
   }
 
   Timer {
@@ -755,6 +780,7 @@ Item {
 
             Text {
               text: "󰈉"
+              textFormat: Text.PlainText
               color: root.selectedText
               opacity: 0.8
               font.family: root.fontFamily

@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import json
-import os
+import math
 import re
 import threading
 import time
-import urllib.request
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional
 
-from . import fmt, net
+from . import fmt, net, store
 from .types import Answer, Context
 
 RATES_URL = "https://open.er-api.com/v6/latest/USD"
@@ -57,9 +55,7 @@ _SEPARATORS = (" in ", " to ", " as ", " into ", " -> ", " → ", " = ")
 
 
 def http_fetch(url: str = RATES_URL, timeout: float = 8.0) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": "beam-omarchy/0.1"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return net.read_json(resp)
+    return net.request_json(url, headers={"User-Agent": "beam-omarchy/0.1"}, timeout=timeout)
 
 
 class RateStore:
@@ -80,8 +76,7 @@ class RateStore:
 
     def _load(self) -> None:
         try:
-            with open(self.cache_path, encoding="utf-8") as f:
-                data = json.load(f)
+            data = store.read_json(self.cache_path)
             if isinstance(data.get("rates"), dict) and isinstance(data.get("fetched_at"), (int, float)):
                 self._data = data
         except (OSError, ValueError, AttributeError):
@@ -111,19 +106,15 @@ class RateStore:
             rates = payload.get("rates") if isinstance(payload, dict) else None
             if payload.get("result") != "success" or not isinstance(rates, dict) or rates.get("USD") != 1:
                 return False
-            data = {"rates": {k: float(v) for k, v in rates.items() if isinstance(v, (int, float)) and v > 0},
+            data = {"rates": {k: float(v) for k, v in rates.items() if isinstance(v, (int, float)) and math.isfinite(v) and v > 0},
                     "fetched_at": self._clock(),
                     "updated_at": payload.get("time_last_update_unix")}
         except Exception:
             return False
         self._data = data
         try:
-            os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
-            tmp = self.cache_path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(data, f)
-            os.replace(tmp, self.cache_path)
-        except OSError:
+            store.write_json(self.cache_path, data)
+        except (OSError, ValueError):
             pass
         return True
 

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import sys
 from typing import List
 
 from . import calc, currency, devvals, timeparse, units
+from .store import log
 from .types import Answer, Context
 
 MAX_QUERY = 200
@@ -30,7 +30,7 @@ def answer(q: str, ctx: Context) -> List[Answer]:
         try:
             result = parse(s, ctx)
         except Exception as e:  # a parser bug must never take the engine down
-            print(f"beam: {kind} parser failed on {s!r}: {e!r}", file=sys.stderr)
+            log(f"{kind} parser failed: {type(e).__name__}")  # never the query text
             result = None
         if result:
             return list(result[:MAX_ANSWERS])

@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import qs.Commons
 import "../lib/apps.js" as Apps
+import "../lib/proc.js" as Proc
 
 // The same interface as Omarchy's app-library facade (entryName, entrySubtext,
 // sortedEntries, iconSource, refreshIcons, launch, appsChanged), built from
@@ -58,7 +59,7 @@ Item {
   function hiddenScanCommand() {
     var desktop = [Quickshell.env("XDG_CURRENT_DESKTOP"), Quickshell.env("XDG_SESSION_DESKTOP"), Quickshell.env("DESKTOP_SESSION")]
       .filter(function(v) { return String(v || "").length > 0 }).join(":")
-    return Util.shellQuote(source.omarchyPath + "/shell/services/hidden-entries.sh") + " " + Util.shellQuote(desktop)
+    return Proc.bounded([source.omarchyPath + "/shell/services/hidden-entries.sh", desktop], 10, 262144, true)
   }
 
   FileView {
@@ -70,15 +71,19 @@ Item {
     onLoadFailed: { source.configuredHidden = ({}); source.appsChanged() }
   }
 
-  // Non-login shell on purpose (as Omarchy's own scan): a login shell's
+  // No login shell on purpose (as Omarchy's own scan): a login shell's
   // profile can touch ~/.local/share and retrigger the desktop-entry watcher.
   Process {
     id: hiddenScan
     property string collected: ""
-    command: ["bash", "-c", source.hiddenScanCommand()]
+    command: source.hiddenScanCommand()
     onStarted: hiddenScan.collected = ""
     stdout: SplitParser { onRead: function(line) { hiddenScan.collected += line + "\n" } }
-    onExited: { source.desktopHidden = Apps.parseIdList(hiddenScan.collected); source.appsChanged() }
+    onExited: function(exitCode) {
+      if (exitCode !== 0) return  // timed out or oversized: keep the last good list
+      source.desktopHidden = Apps.parseIdList(hiddenScan.collected)
+      source.appsChanged()
+    }
   }
 
   Connections {

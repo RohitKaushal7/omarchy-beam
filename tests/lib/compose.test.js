@@ -75,9 +75,14 @@ test("settings merge validates types and bounds", () => {
   assert.deepEqual(Settings.merge(null), Settings.merge({}))
 })
 
+test("Jev is opt-in: off unless the settings turn it on", () => {
+  assert.equal(Settings.merge({}).jev.enabled, false)
+  assert.equal(Settings.merge({ jev: { enabled: true } }).jev.enabled, true)
+})
+
 test("settings withValue and findEntry", () => {
-  const s = Settings.withValue(Settings.merge({}), "jev.enabled", false)
-  assert.equal(s.jev.enabled, false)
+  const s = Settings.withValue(Settings.merge({}), "jev.enabled", true)
+  assert.equal(s.jev.enabled, true)
   assert.deepEqual(Settings.withValue(s, "nope.path", 1), s)
   assert.deepEqual(Settings.findEntry({ plugins: [{ id: "a" }, { id: "dev.reuk.beam", x: 1 }] }, "dev.reuk.beam"),
     { id: "dev.reuk.beam", x: 1 })

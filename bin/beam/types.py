@@ -49,7 +49,7 @@ class Settings:
     grouping: str = "auto"
     significant_digits: int = 10
     rates_refresh_hours: int = 24
-    jev_enabled: bool = True
+    jev_enabled: bool = False
     jev_key_file: str = "~/.config/typesafe/api_key"
     jev_cache_size: int = 500
     idle_exit_minutes: int = 10
@@ -71,7 +71,7 @@ class Settings:
             grouping=grouping if grouping in ("auto", "indian", "international") else "auto",
             significant_digits=_int(calc.get("significantDigits"), 10, 3, 20),
             rates_refresh_hours=_int(calc.get("ratesRefreshHours"), 24, 1, 24 * 30),
-            jev_enabled=_bool(jev.get("enabled"), True),
+            jev_enabled=_bool(jev.get("enabled"), False),
             jev_key_file=_str(jev.get("keyFile"), "~/.config/typesafe/api_key"),
             jev_cache_size=_int(jev.get("cacheSize"), 500, 0, 10000),
             idle_exit_minutes=_int(engine.get("idleExitMinutes"), 10, 1, 24 * 60),

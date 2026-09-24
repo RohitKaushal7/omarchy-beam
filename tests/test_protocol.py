@@ -11,6 +11,7 @@ import unittest
 from helpers import BIN, make_ctx, read
 from beam import currency, jev
 from beam.protocol import Server
+from beam.types import Settings
 
 
 class Out(io.StringIO):
@@ -37,7 +38,8 @@ class FakeJev:
 def server(jev_client=None, ctx=None, **kw):
     out = Out()
     tmp = tempfile.mkdtemp()
-    s = Server(out, ctx or make_ctx(locale="en_US.UTF-8"), tmp, tmp, jev_client=jev_client or FakeJev(), **kw)
+    ctx = ctx or make_ctx(locale="en_US.UTF-8", jev_enabled=jev_client is not None)
+    s = Server(out, ctx, tmp, tmp, jev_client=jev_client or FakeJev(), **kw)
     return s, out
 
 
@@ -221,6 +223,13 @@ class EndToEnd(unittest.TestCase):
             proc.stdin.close()
             proc.wait(5)
             proc.stdout.close()
+
+
+class JevOptIn(unittest.TestCase):
+    def test_off_unless_enabled(self):
+        self.assertFalse(Settings.from_config({}).jev_enabled)
+        self.assertFalse(Settings.from_config({"jev": {"enabled": "yes"}}).jev_enabled)
+        self.assertTrue(Settings.from_config({"jev": {"enabled": True}}).jev_enabled)
 
 
 if __name__ == "__main__":

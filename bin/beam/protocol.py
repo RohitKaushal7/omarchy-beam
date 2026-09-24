@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import threading
 import time
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Optional, TextIO
 
-from . import timeparse
+from . import store, timeparse
 from .answer import answer
 from .jev import AuthError, Catalog, JevClient, read_key
+from .store import log
 from .types import Context, Settings
 
 MAX_LINE = 1 << 20  # 1 MiB
@@ -108,18 +108,13 @@ class Server:
             return
         entry = {k: str(entry.get(k) or "") for k in RECENT_FIELDS}
         try:
-            with open(self.recent_path, encoding="utf-8") as f:
-                recent = [r for r in json.load(f) if isinstance(r, dict)]
+            recent = [r for r in store.read_json(self.recent_path, limit=256 * 1024) if isinstance(r, dict)]
         except (OSError, ValueError, TypeError):
             recent = []
         recent = [entry] + [r for r in recent if r.get("key") != entry["key"]]
         try:
-            os.makedirs(os.path.dirname(self.recent_path), exist_ok=True)
-            tmp = self.recent_path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(recent[:MAX_RECENT], f, ensure_ascii=False)
-            os.replace(tmp, self.recent_path)
-        except OSError:
+            store.write_json(self.recent_path, recent[:MAX_RECENT])
+        except (OSError, ValueError):
             pass
 
     def op_catalog(self, msg: dict) -> None:
@@ -162,7 +157,7 @@ class Server:
                 self.send({"op": "jev", "id": rid, "pick": None, "status": "auth-failed"})
                 continue
             except Exception as e:  # never let one bad reply stop the worker
-                print(f"beam: jev lookup failed: {e!r}", file=sys.stderr)
+                log(f"jev lookup failed: {type(e).__name__}")
                 pick, cached = None, False
             if rid == self._jev_latest:  # a newer query makes this reply stale
                 self.send({"op": "jev", "id": rid, "pick": self._pick_json(pick), "cached": cached})
@@ -195,7 +190,9 @@ def serve(stdin: TextIO, stdout: TextIO, ctx: Context, state_dir: str, cache_dir
 
     threading.Thread(target=watchdog, daemon=True).start()
     server.send({"op": "ready", "version": __import__("beam").VERSION})
-    for line in stdin:
-        if line.strip():
+    for line in store.bounded_lines(stdin, MAX_LINE):
+        if line is None:
+            server.send({"op": "error", "error": "line too long"})
+        elif line.strip():
             server.handle(line)
     return 0

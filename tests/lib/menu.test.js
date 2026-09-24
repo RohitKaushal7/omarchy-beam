@@ -59,11 +59,26 @@ test("search ranks exact over prefix over contains", () => {
 
 test("when:false hides entries, and guard output parses", () => {
   const t = tree(SAMPLE)
-  const guards = Menu.parseGuardOutput("setup.hidden:w:0\nsystem.lock:w:1\n")
-  assert.deepEqual(guards, { "setup.hidden": false, "system.lock": true })
+  const guard = Menu.guardScript(t.items)
+  const index = guard.ids.indexOf("setup.hidden")
+  assert.ok(index >= 0)
+  assert.ok(guard.script.includes(`echo ${index}:w:1`))
+  const lines = guard.ids.map((id, i) => `${i}:w:${id === "setup.hidden" ? 0 : 1}`).join("\n")
+  const guards = Menu.parseGuardOutput(lines + "\n", guard.ids)
+  assert.equal(guards["setup.hidden"], false)
   const entries = Menu.searchable(t.items, t.itemOrder, guards)
   assert.ok(!entries.some(e => e.id === "setup.hidden"))
-  assert.ok(Menu.guardScript(t.items).includes("setup.hidden:w:1"))
+})
+
+test("menu ids never reach the guard script as shell text", () => {
+  const t = tree(`{"x": {"label": "X", "action": "true", "when": "true"}}`,
+                 `{"a;$(touch /tmp/pwn)": {"label": "Bad", "action": "true", "when": "true"}}`)
+  const guard = Menu.guardScript(t.items)
+  assert.ok(!guard.script.includes("touch"))
+  assert.ok(guard.ids.includes("a;$(touch /tmp/pwn)"))
+  const results = Menu.parseGuardOutput(guard.ids.map((_, i) => `${i}:w:1`).join("\n"), guard.ids)
+  assert.equal(results["a;$(touch /tmp/pwn)"], true)
+  assert.deepEqual(Menu.parseGuardOutput("7:w:1\nnope:w:0\n", guard.ids), {})
 })
 
 test("risky actions", () => {
@@ -103,7 +118,7 @@ test("real Omarchy menu loads", { skip: !hasOmarchy }, () => {
   assert.ok(Object.keys(t.items).length > 100)
   const entries = Menu.searchable(t.items, t.itemOrder, {})
   assert.equal(Menu.search(t.items, entries, "nightlight")[0].entry.id, "trigger.toggle.nightlight")
-  assert.ok(Menu.guardScript(t.items).length > 0)
+  assert.ok(Menu.guardScript(t.items).script.length > 0)
 })
 
 test("an app named exactly like the query outranks a same-named menu action", () => {

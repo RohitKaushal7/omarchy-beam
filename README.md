@@ -113,11 +113,13 @@ Jev is TypeSafe's fast classification model. When the name search finds
 nothing strong and you pause typing, Beam asks Jev which app or action you
 mean and adds it as a ✦ row. It never runs anything by itself.
 
-Get a key from the [TypeSafe console](https://console.typesafe.ai), then
-either export `TYPESAFE_API_KEY` from your shell profile (Beam asks your login
-shell for it, since the desktop session does not load rc files) or put the key
-in `~/.config/typesafe/api_key`. Without a key everything else works as
-normal; **Ctrl+,** shows whether Beam found one.
+Jev is off until you turn it on. Get a key from the
+[TypeSafe console](https://console.typesafe.ai), then either export
+`TYPESAFE_API_KEY` from your shell profile (Beam asks your login shell for it,
+since the desktop session does not load rc files) or put the key in
+`~/.config/typesafe/api_key`, and switch on **Use Jev** in Beam's settings
+(**Ctrl+,**), which also shows whether Beam found the key. With Jev off,
+everything else works as normal and nothing is sent to TypeSafe.
 
 Usage and cost: `python3 ~/.config/omarchy/plugins/dev.reuk.beam/bin/beam.py stats`.
 
@@ -134,11 +136,38 @@ edits text, **Esc** goes back. Settings are stored on Beam's entry in
 
 ## Privacy
 
-- **TypeSafe** (only when Jev runs): what you typed plus the names of your
-  apps and menu actions. The usage log records counts and timings, never text.
+- **TypeSafe** (only when Jev is on and a key is found): what you typed plus
+  the names of your apps and menu actions.
 - **ExchangeRate-API**: one request for the rate table, at most once per
   refresh interval. Your amounts never leave the machine.
-- **Search shortcuts** go only to your browser.
+- **Search shortcuts and Ask agent** hand your text to the browser (in the
+  URL) or the agent command (as its prompt argument), as any launcher does,
+  so it shows in their command lines while they start.
+- **On disk**, owner-only: recent picks (`~/.local/state/beam/recent.json`),
+  a usage log of counts and timings trimmed to about 1 MiB
+  (`~/.local/state/beam/usage.jsonl`), the Jev answer cache, keyed by hashes
+  of what you typed, never the text (`~/.cache/beam/jev-cache.json`), and the
+  rate table (`~/.cache/beam/rates.json`).
+- Nothing you type is written to logs.
+
+## Security
+
+- **Network:** HTTPS to two fixed endpoints. Redirects are refused, so the
+  TypeSafe key is only ever sent to `api.typesafe.ai`. Each request has a
+  total deadline (8 s for rates, 6 s for Jev), not only per-read timeouts,
+  and responses over 256 KiB are rejected before parsing.
+- **Helper processes** (menu guards, keybinding hints, the hidden-app scan,
+  clipboard paste, the key lookup) run under `timeout` with their output
+  capped at the source, so a hung or runaway command can't stall or grow the
+  shell. Commands are passed as arguments, never assembled as shell text;
+  copied values reach `wl-copy` on stdin, not on its command line.
+- **The key** is read from the environment, from your login shell (only while
+  Jev is on; no stdin, 3 s, and only the value between marker bytes counts),
+  or from the key file (a regular file of at most 4 KiB). It reaches the
+  helper only through its environment, never a command line, log or file.
+- **Files** are written atomically through randomly named temp files with
+  owner-only permissions; reads are size-capped and accept regular files only.
+- **Display:** every label is rendered as plain text, never rich text.
 
 ## How it runs
 

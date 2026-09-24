@@ -5,25 +5,27 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
+import math
 import os
+import re
 import threading
 import time
-import urllib.error
-import urllib.request
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import net
+from . import net, store
 
-API_URL = os.environ.get("TYPESAFE_BASE_URL", "https://api.typesafe.ai").rstrip("/") + "/v1/systemone"
+API_URL = "https://api.typesafe.ai/v1/systemone"
 MODEL = "jev-latest"
 NONE = "(none of these)"
 SLICE = 254  # a Choice allows 255 options; one is kept for NONE
 ACCEPT = 0.35
 MAX_QUERY = 200
 USD_PER_M_INPUT_TOKENS = 0.042
+USAGE_MAX_BYTES = 1024 * 1024  # the usage log keeps roughly its newest 5,000 lookups
+CACHE_KEY = re.compile(r"[0-9a-f]{16}\|[0-9a-f]{32}")
 # Measured on a real 241-item catalog: naming "the effect they want" lifted
 # descriptive queries ("screen warmer" 0.28 → 0.60) and lowered unrelated ones
 # (≤ 0.17), leaving ACCEPT = 0.35 with a clear margin on both sides.
@@ -75,27 +77,23 @@ def read_key(key_file: str) -> Tuple[Optional[str], str]:
     if key:
         return key, "env"
     try:
-        with open(os.path.expanduser(key_file), encoding="utf-8") as f:
-            key = f.read().strip()
-    except OSError:
+        key = store.read_text(os.path.expanduser(key_file), limit=4096).strip()
+    except (OSError, ValueError):
         key = ""
     return (key, "file") if key else (None, "no-key")
 
 
 def http_post(key: str, payload: dict, timeout: float = 6.0) -> dict:
-    req = urllib.request.Request(API_URL, data=json.dumps(payload).encode(), method="POST",
-                                 headers={"Authorization": f"Bearer {key}",
-                                          "Content-Type": "application/json",
-                                          "User-Agent": "beam-omarchy/0.1"})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return net.read_json(resp)
-    except urllib.error.HTTPError as e:
-        e.close()
+        return net.request_json(API_URL, method="POST", body=json.dumps(payload).encode(), timeout=timeout,
+                                headers={"Authorization": f"Bearer {key}",
+                                         "Content-Type": "application/json",
+                                         "User-Agent": "beam-omarchy/0.1"})
+    except net.HTTPStatusError as e:
         if e.code in (401, 403):
             raise AuthError(f"HTTP {e.code}") from None
         raise JevError(f"HTTP {e.code}") from None
-    except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError, ValueError) as e:
+    except (http.client.HTTPException, OSError, ValueError) as e:
         raise JevError(str(e)) from None
 
 
@@ -120,24 +118,24 @@ class JevClient:
         if not self._cache_path or self._cache_size <= 0:
             return
         try:
-            with open(self._cache_path, encoding="utf-8") as f:
-                entries = json.load(f).get("entries", [])
+            entries = store.read_json(self._cache_path).get("entries", [])
             for ck, key, p in entries[-self._cache_size:]:
-                self._cache[ck] = Pick(key, float(p)) if key else None
+                if isinstance(ck, str) and CACHE_KEY.fullmatch(ck):
+                    self._cache[ck] = Pick(key, float(p)) if key else None
+            legacy = len(self._cache) < min(len(entries), self._cache_size)
         except (OSError, ValueError, TypeError, AttributeError):
             self._cache.clear()
+            return
+        if legacy:  # older versions keyed the cache by query text; drop those
+            self._save_cache()
 
     def _save_cache(self) -> None:
         if not self._cache_path:
             return
         entries = [[ck, pick.key if pick else None, pick.p if pick else 0] for ck, pick in self._cache.items()]
         try:
-            os.makedirs(os.path.dirname(self._cache_path), exist_ok=True)
-            tmp = self._cache_path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump({"entries": entries}, f)
-            os.replace(tmp, self._cache_path)
-        except OSError:
+            store.write_json(self._cache_path, {"entries": entries})
+        except (OSError, ValueError):
             pass
 
     def set_cache_size(self, size: int) -> None:
@@ -152,9 +150,14 @@ class JevClient:
     def normalise(query: str) -> str:
         return " ".join(str(query).lower().split())[:MAX_QUERY]
 
+    @classmethod
+    def cache_key(cls, query: str, catalog: Catalog) -> str:
+        """Catalog hash plus a hash of the query: the cache file holds no typed text."""
+        return f"{catalog.hash}|" + hashlib.sha256(cls.normalise(query).encode()).hexdigest()[:32]
+
     def cached(self, query: str, catalog: Catalog):
         """(True, pick) on a hit, (False, None) on a miss."""
-        ck = f"{catalog.hash}|{self.normalise(query)}"
+        ck = self.cache_key(query, catalog)
         with self._lock:
             if ck in self._cache:
                 self._cache.move_to_end(ck)
@@ -164,7 +167,7 @@ class JevClient:
     def _remember(self, query: str, catalog: Catalog, pick: Optional[Pick]) -> None:
         if self._cache_size <= 0:
             return
-        ck = f"{catalog.hash}|{self.normalise(query)}"
+        ck = self.cache_key(query, catalog)
         with self._lock:
             self._cache[ck] = pick
             self._cache.move_to_end(ck)
@@ -191,7 +194,8 @@ class JevClient:
             probs = answer.get("probabilities") or {answer["choice"]: 1.0}
             tokens = int((result.get("usage") or {}).get("input_tokens") or 0)
             # Only the options we offered count; anything else is not a pick.
-            return {str(k): float(v) for k, v in probs.items() if str(k) in criteria}, tokens
+            return {str(k): float(v) for k, v in probs.items()
+                    if str(k) in criteria and math.isfinite(float(v))}, tokens
         except (KeyError, TypeError, ValueError, AttributeError):
             raise JevError("unexpected response") from None
 
@@ -251,17 +255,14 @@ class JevClient:
             return
         record = {"ts": round(self._clock(), 3), "cached": False, **fields}
         try:
-            os.makedirs(os.path.dirname(self._usage_path), exist_ok=True)
-            with open(self._usage_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(record) + "\n")
+            store.append_line(self._usage_path, json.dumps(record), max_bytes=USAGE_MAX_BYTES)
         except OSError:
             pass
 
 
 def format_stats(usage_path: str) -> str:
     try:
-        with open(usage_path, encoding="utf-8") as f:
-            rows = [json.loads(line) for line in f if line.strip()]
+        rows = [store.loads(line) for line in store.read_text(usage_path).splitlines() if line.strip()]
     except (OSError, ValueError):
         rows = []
     if not rows:

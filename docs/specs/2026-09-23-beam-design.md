@@ -1,6 +1,7 @@
 # Beam — design
 
-**Status:** approved design, pre-implementation · **Date:** 2026-09-23
+**Status:** original design, implemented in 0.1.0 · **Date:** 2026-09-23. The README is the
+current reference; its Privacy and Security sections supersede §8.
 **Plugin id:** `dev.reuk.beam` · **Repo:** `RohitKaushal7/omarchy-beam` · **Version:** 0.1.0
 
 ## 1. Purpose
@@ -347,10 +348,11 @@ file ✓` / `no key — Jev off`), never the key.
   breadcrumbs. Nothing else.
 - Sent to ExchangeRate-API: a GET for the USD rate table. Never amounts.
 - Search text goes only to the user's browser.
-- Engine runs as `python3 -I` with a cleared environment and bounded output;
-  no `eval`/`exec`; user input reaches processes only as argv elements, never
-  shell strings (menu actions come from the menu config files, as in the
-  menu).
+- Engine runs as `python3 -I` with a cleared environment; no `eval`/`exec`;
+  user input reaches processes only as argv elements, never shell strings
+  (menu actions come from the menu config files, as in the menu). Network
+  reads, helper processes and files are bounded in time and size as the
+  README's Security section describes.
 - Repo contains no install/setup-named files, no `sudo`/`pkexec`,
   `systemctl`, package-manager commands or binaries, so the marketplace
   baseline outcome should be `passed`.

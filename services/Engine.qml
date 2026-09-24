@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import "../lib/proc.js" as Proc
 
 // Owns the Python helper (bin/beam.py serve): lazy start, JSON lines in and
 // out, one restart after a crash, then local-only for the rest of the session.
@@ -17,7 +18,9 @@ Item {
   property bool stopping: false
   // TYPESAFE_API_KEY as the user's login shell sees it. omarchy-shell is
   // started by the session, not a login shell, so a key exported from shell
-  // rc files is missing from Quickshell.env; ask the login shell once.
+  // rc files is missing from Quickshell.env; ask the login shell once, and
+  // only while Jev is enabled.
+  property bool wantKey: false
   property string loginKey: ""
   property bool keyProbed: Quickshell.env("TYPESAFE_API_KEY") ? true : false
   property bool startWhenProbed: false
@@ -26,7 +29,7 @@ Item {
 
   function start() {
     if (engine.disabled || proc.running) return
-    if (!engine.keyProbed) {
+    if (engine.wantKey && !engine.keyProbed) {
       engine.startWhenProbed = true
       if (!keyProbe.running) keyProbe.running = true
       return
@@ -57,7 +60,7 @@ Item {
   function environment() {
     var env = { PATH: "/usr/bin:/bin" }
     var names = ["HOME", "LANG", "LC_ALL", "LC_MONETARY", "LC_NUMERIC", "TZ", "XDG_CACHE_HOME",
-                 "XDG_STATE_HOME", "TYPESAFE_API_KEY", "TYPESAFE_BASE_URL"]
+                 "XDG_STATE_HOME", "TYPESAFE_API_KEY"]
     for (var i = 0; i < names.length; i++) {
       var value = Quickshell.env(names[i])
       if (value) env[names[i]] = String(value)
@@ -66,21 +69,34 @@ Item {
     return env
   }
 
+  // The probe's command line is constant; the key only ever travels on its
+  // stdout. The login shell gets no stdin, 3 s and 4 KiB of output, and only
+  // the text between the \x1e markers counts, so anything a profile prints
+  // (a motd, fastfetch) never becomes part of the key.
+
+  function keyFromProbe(text) {
+    var found = String(text || "").match(/\x1e([A-Za-z0-9._~+\/=:-]{8,512})\x1e/g)
+    return found ? found[found.length - 1].slice(1, -1) : ""
+  }
+
   Process {
     id: keyProbe
-    command: [Quickshell.env("SHELL") || "/bin/bash", "-lc", 'printf %s "${TYPESAFE_API_KEY-}"']
+    command: Proc.bounded([Quickshell.env("SHELL") || "/bin/bash", "-lc", 'printf "\\036%s\\036" "${TYPESAFE_API_KEY-}"'], 3, 4096)
     stdout: StdioCollector { id: keyOut; waitForEnd: true }
     onExited: {
-      engine.loginKey = String(keyOut.text || "").trim()
+      engine.loginKey = engine.keyFromProbe(keyOut.text)
       engine.keyProbed = true
       if (engine.startWhenProbed) {
         engine.startWhenProbed = false
         engine.start()
+      } else if (engine.loginKey && proc.running) {
+        engine.stop()  // Jev was just enabled: the next query restarts the helper with the key
       }
     }
   }
 
-  Component.onCompleted: if (!engine.keyProbed) keyProbe.running = true
+  onWantKeyChanged: if (engine.wantKey && !engine.keyProbed && !keyProbe.running) keyProbe.running = true
+  Component.onCompleted: if (engine.wantKey && !engine.keyProbed) keyProbe.running = true
 
   Process {
     id: proc

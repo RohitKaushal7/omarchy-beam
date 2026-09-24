@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 import "../lib/menu.js" as Menu
+import "../lib/proc.js" as Proc
 
 // Omarchy menu entries (default + user JSONC, `when:` guards), apps from the
 // shell's app library and keybinding hints, ready for search and for Jev.
@@ -102,10 +103,11 @@ Item {
       return
     }
     source.guardsPending = false
-    var script = Menu.guardScript(source.items)
-    if (!script) return
+    var guard = Menu.guardScript(source.items)
+    if (!guard.script) return
     guardProc.collected = ""
-    guardProc.command = ["bash", "-lc", script]
+    guardProc.ids = guard.ids
+    guardProc.command = Proc.bounded(["bash", "-lc", guard.script], 10, 262144, true)
     guardProc.running = true
   }
 
@@ -129,10 +131,11 @@ Item {
   Process {
     id: guardProc
     property string collected: ""
+    property var ids: []
     stdout: SplitParser { onRead: function(data) { guardProc.collected += data + "\n" } }
     onExited: function(exitCode, exitStatus) {
       if (exitCode === 0 && exitStatus === 0) {
-        source.whenResults = Menu.parseGuardOutput(guardProc.collected)
+        source.whenResults = Menu.parseGuardOutput(guardProc.collected, guardProc.ids)
         source.rebuildEntries()
       }
       if (source.guardsPending) Qt.callLater(source.evaluateGuards)
@@ -142,7 +145,7 @@ Item {
   Process {
     id: bindProc
     property string collected: ""
-    command: ["bash", "-lc", "omarchy menu keybindings --print"]
+    command: Proc.bounded(["bash", "-lc", "omarchy menu keybindings --print"], 10, 262144, true)
     onStarted: bindProc.collected = ""
     stdout: SplitParser { onRead: function(data) { bindProc.collected += data + "\n" } }
     onExited: function(exitCode) {

@@ -4,6 +4,7 @@ import time
 import unittest
 
 from helpers import BIN, make_ctx
+from beam import answer as answer_mod
 from beam.answer import answer
 from beam.types import KINDS
 
@@ -45,6 +46,17 @@ class Dispatch(unittest.TestCase):
         for q in GARBAGE:
             with self.subTest(q=q[:20]):
                 self.assertIsInstance(answer(q, CTX), list)
+
+    def test_parser_failure_log_has_no_query_text(self):
+        import contextlib
+        import io
+        import unittest.mock
+        err = io.StringIO()
+        with unittest.mock.patch.object(answer_mod, "PARSERS", [("calculator", lambda s, c: 1 / 0)]), \
+                contextlib.redirect_stderr(err):
+            self.assertEqual(answer_mod.answer("my secret 2+2", make_ctx()), [])
+        self.assertIn("calculator", err.getvalue())
+        self.assertNotIn("secret", err.getvalue())
 
     def test_long_input_rejected_fast(self):
         start = time.perf_counter()

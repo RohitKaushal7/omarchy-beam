@@ -158,6 +158,24 @@ class Picks(unittest.TestCase):
         self.assertIn('"tokens": 100', log)
         self.assertIn("1 API calls", jev.format_stats(os.path.join(tmp, "usage.jsonl")))
 
+    def test_cache_file_has_no_query_text_and_is_owner_only(self):
+        tmp = tempfile.mkdtemp()
+        c = client(fake_post({"Item 3 — Setup": 0.9}), tmp)
+        c.pick("my secret query", jev.Catalog(items(10)))
+        path = os.path.join(tmp, "cache.json")
+        self.assertNotIn("secret", read(path))
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+        again = client(fake_post({}), tmp)
+        self.assertEqual(again.cached("My  Secret query", jev.Catalog(items(10)))[0], True)
+
+    def test_legacy_plain_text_cache_entries_are_purged(self):
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "cache.json")
+        with open(path, "w") as f:
+            json.dump({"entries": [["abcdef0123456789|my secret query", "k1", 0.9]]}, f)
+        client(fake_post({}), tmp)
+        self.assertNotIn("secret", read(path))
+
 
 class MalformedResponses(unittest.TestCase):
     def test_pick_outside_the_options_is_no_pick(self):
@@ -173,9 +191,15 @@ class MalformedResponses(unittest.TestCase):
     def test_http_protocol_errors_become_jev_errors(self):
         import http.client
         import unittest.mock
-        with unittest.mock.patch("urllib.request.urlopen", side_effect=http.client.IncompleteRead(b"")):
+        with unittest.mock.patch("beam.net.request_json", side_effect=http.client.IncompleteRead(b"")):
             with self.assertRaises(jev.JevError):
                 jev.http_post("k", {})
+
+    def test_non_finite_probability_is_no_pick(self):
+        def post(key, payload):
+            return {"answers": {"target": {"choice": "Item 1 — Setup",
+                                           "probabilities": {"Item 1 — Setup": float("inf")}}}}
+        self.assertEqual(client(post).pick("q", jev.Catalog(items(3))), (None, False))
 
 
 class ReadKey(unittest.TestCase):
@@ -190,6 +214,8 @@ class ReadKey(unittest.TestCase):
             self.assertEqual(jev.read_key(path), ("abc", "file"))
             os.environ["TYPESAFE_API_KEY"] = "envkey"
             self.assertEqual(jev.read_key(path), ("envkey", "env"))
+            os.environ.pop("TYPESAFE_API_KEY")
+            self.assertEqual(jev.read_key("/dev/zero"), (None, "no-key"))
         finally:
             os.environ.pop("TYPESAFE_API_KEY", None)
             if old is not None:
