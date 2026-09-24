@@ -5,7 +5,7 @@ Omarchy actions, calculate and convert inline, search the web with shortcuts
 and open URLs. With an optional [TypeSafe](https://typesafe.ai) Jev key it also
 finds actions by what you *mean*: "screen warmer" finds Nightlight.
 
-![Beam](preview.png)
+![Beam: what you type and what it answers. screen warmer → ✦ Nightlight, 2400 + 18% → 2,832, 100 usd in inr → ₹9,564.78, 5'11" in cm → 180.34 cm, 3pm ist in pst → 02:30, yt ⇥ lofi beats → YouTube](preview.png)
 
 ## Install
 
