@@ -129,7 +129,6 @@ Item {
   }
 
   function setText(text) {
-    if (text.length > 0) panel.freezeCardTop()
     root.filterText = text
     root.serial += 1
     root.confirmKey = ""
@@ -429,7 +428,6 @@ Item {
 
   function openSettings() {
     root.settingsOpen = true
-    panel.freezeCardTop()
     Qt.callLater(function() { settingsView.reset() })
   }
 
@@ -446,7 +444,7 @@ Item {
 
   function rowListHeight(_serial) {
     if (root.rows.length === 0) return root.baseRowHeight * 2
-    var top = panel.cardTop >= 0 ? panel.cardTop : Style.gapsOut
+    var top = panel.cardTop
     var available = Math.min(panel.height - top - Style.gapsOut - root.contentMargin * 2 - root.headerHeight - root.contentSpacing,
                              Math.round(panel.height * 0.7),
                              root.settings.look.maxRows * (root.detailRowHeight + root.rowSpacing))
@@ -554,15 +552,9 @@ Item {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
 
-    // Opens centred; the first keystroke freezes the top edge so the card
-    // grows downward instead of re-centring (the Omarchy menu's behaviour).
-    property int cardTop: -1
-    readonly property int centeredTop: Math.max(Style.gapsOut, Math.round((height - root.cardHeight) / 2))
-    readonly property int effectiveCardTop: cardTop >= 0 ? cardTop : centeredTop
-    function freezeCardTop() {
-      if (visible && cardTop < 0) cardTop = Math.max(Style.gapsOut, Math.round(height * 0.22))
-    }
-    onVisibleChanged: if (!visible) cardTop = -1
+    // The top edge stays put from the moment Beam opens, so the card only
+    // grows downward as rows arrive; it never re-centres or jumps.
+    readonly property int cardTop: Math.max(Style.gapsOut, Math.round(height * 0.22))
 
     Rectangle {
       anchors.fill: parent
@@ -577,10 +569,10 @@ Item {
     BorderSurface {
       id: card
       width: root.cardWidth
-      height: Math.min(root.cardHeight, panel.height - Style.gapsOut - panel.effectiveCardTop)
+      height: Math.min(root.cardHeight, panel.height - Style.gapsOut - panel.cardTop)
       radius: root.cornerRadius
       anchors.horizontalCenter: parent.horizontalCenter
-      y: panel.effectiveCardTop
+      y: panel.cardTop
       color: root.background
       borderSpec: root.borderSpec
       padding: root.contentMargin
