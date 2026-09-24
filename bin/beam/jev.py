@@ -15,6 +15,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple
 
+from . import net
+
 API_URL = os.environ.get("TYPESAFE_BASE_URL", "https://api.typesafe.ai").rstrip("/") + "/v1/systemone"
 MODEL = "jev-latest"
 NONE = "(none of these)"
@@ -87,7 +89,7 @@ def http_post(key: str, payload: dict, timeout: float = 6.0) -> dict:
                                           "User-Agent": "beam-omarchy/0.1"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.load(resp)
+            return net.read_json(resp)
     except urllib.error.HTTPError as e:
         e.close()
         if e.code in (401, 403):

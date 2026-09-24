@@ -11,7 +11,7 @@ import urllib.request
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional
 
-from . import fmt
+from . import fmt, net
 from .types import Answer, Context
 
 RATES_URL = "https://open.er-api.com/v6/latest/USD"
@@ -59,7 +59,7 @@ _SEPARATORS = (" in ", " to ", " as ", " into ", " -> ", " → ", " = ")
 def http_fetch(url: str = RATES_URL, timeout: float = 8.0) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": "beam-omarchy/0.1"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.load(resp)
+        return net.read_json(resp)
 
 
 class RateStore:
