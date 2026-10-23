@@ -119,6 +119,8 @@ Item {
                             card: { x: card.x, y: card.y, width: card.width, height: card.height },
                             settingsCursor: settingsView.cursor,
                             settingsEditing: settingsView.editing,
+                            filterText: root.filterText,
+                            rows: root.rows.map(function(r) { return r.kind + " " + r.key }),
                             settings: root.settings })
   }
 
@@ -478,7 +480,7 @@ Item {
   Engine {
     id: engine
     wantKey: root.settings.jev.enabled
-    onMessage: function(msg) { root.onEngineMessage(msg) }
+    onMessage: function(line) { root.onEngineMessage(JSON.parse(line)) }
   }
 
   MenuSource {

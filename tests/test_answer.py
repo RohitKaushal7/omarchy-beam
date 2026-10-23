@@ -96,7 +96,7 @@ class Cli(unittest.TestCase):
 
     def test_usage(self):
         self.assertEqual(self.run_cli().returncode, 2)
-        self.assertEqual(self.run_cli("version").stdout.strip(), "0.1.0")
+        self.assertEqual(self.run_cli("version").stdout.strip(), "0.1.1")
 
 
 if __name__ == "__main__":

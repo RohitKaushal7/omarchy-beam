@@ -25,7 +25,10 @@ Item {
   property bool keyProbed: Quickshell.env("TYPESAFE_API_KEY") ? true : false
   property bool startWhenProbed: false
 
-  signal message(var msg)
+  // Carries the raw JSON line, not the parsed object: since Qt 6.12 an object
+  // sent through a `var` signal arrives with its arrays turned into sequences
+  // that fail Array.isArray, which silently dropped every answer.
+  signal message(string line)
 
   function start() {
     if (engine.disabled || proc.running) return
@@ -114,13 +117,13 @@ Item {
         try { msg = JSON.parse(line) } catch (e) { return }
         if (msg.op === "ready") {
           engine.ready = true
-          engine.message(msg)  // Beam sends config + catalog first…
+          engine.message(line)  // Beam sends config + catalog first…
           var pending = engine.queue
           engine.queue = []
           for (var i = 0; i < pending.length; i++) proc.write(pending[i])  // …then the queue
           return
         }
-        engine.message(msg)
+        engine.message(line)
       }
     }
     onExited: function(exitCode, exitStatus) {
