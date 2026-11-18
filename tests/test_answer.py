@@ -19,11 +19,13 @@ ROUTING = [
     ("days until dec 25", "time", "93 days"),
     ("1536000 bytes", "developer", "1.46 MiB"),
     ("1700000000", "developer", "Wed, 15 Nov 2023 · 03:43:20 IST"),
+    ("2026-11-18", "time", "Wednesday"),
+    ("10-3", "calculator", "7"),
 ]
 
 NEVER = ["chrome", "firefox dev", "gg ai", "yt lofi beats", "screen warmer", "nightlight",
          "install docker", "github.com/omacom", "localhost:3000", "settings", "ask claude",
-         "reboot", "beam settings", "", "   ", "e", "x"]
+         "reboot", "beam settings", "", "   ", "e", "x", "555-1234", "555-123-4567", "(555) 555-1234"]
 
 GARBAGE = ["🙂🙂", "½ + ¼", "٣ + ٤", "∞", "‮123", "1e999999", "9" * 400, "((((((((((1))))))))))",
            "2^99999", "10!!!!", "sqrt(" * 50, "---1", "%%%", "#" * 5, "0x" + "f" * 100, "۱۲۳"]

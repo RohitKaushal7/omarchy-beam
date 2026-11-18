@@ -59,6 +59,17 @@ class Dates(unittest.TestCase):
         self.assertEqual(first("what day is 15 aug 2027").value, "Sunday")
         self.assertEqual(first("what day was jan 26 1950").value, "Thursday")
 
+    def test_bare_iso_date(self):
+        a = first("2026-11-18")
+        self.assertEqual(a.value, "Wednesday")
+        self.assertEqual(a.copy, "Wednesday")
+        self.assertEqual(a.detail, "Wed, 18 Nov 2026 · in 56 days")
+        self.assertEqual(first("2026-09-23").detail, "Wed, 23 Sep 2026 · today")
+        self.assertEqual(first("2026-09-24").detail, "Thu, 24 Sep 2026 · tomorrow")
+        self.assertEqual(first("2026-09-22").detail, "Tue, 22 Sep 2026 · yesterday")
+        self.assertEqual(first("1950-1-26").detail, "Thu, 26 Jan 1950 · 27,999 days ago")
+        self.assertIsNone(timeparse.parse("2026-13-45", CTX))
+
     def test_date_rejects(self):
         for q in ("days until never", "today + 5 apples", "30 feb - 1 jan", "chrome", "5 - 3", "2024",
                   "in 5 minutes"):

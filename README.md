@@ -76,8 +76,13 @@ exact or prefix match still beats a recent pick that only contains the text.
 | Percentages | `18% of 2400` · `2400 + 18%` · `what % of 2400 is 432` |
 | Units | `5 ft in cm` · `72f to c` · `3.2 GB in MiB` · `5'11" in cm` · `100 km/h in mph` · `5 kg` |
 | Currency | `100 usd in inr` · `₹2400 to eur` · `$50` · `10k inr in usd` · `1 lakh inr in usd` |
-| Time and dates | `3pm ist in pst` · `now in tokyo` · `days until dec 25` · `today + 90 days` · `in 3 weeks` · `what day is 15 aug 2027` |
+| Time and dates | `3pm ist in pst` · `now in tokyo` · `days until dec 25` · `today + 90 days` · `in 3 weeks` · `what day is 15 aug 2027` · `2026-12-25` |
 | Developer | `0xff` · `255 in bin` · `#ff8800` · `rgb(255, 136, 0)` · `1700000000` · `now in unix` · `1536000 bytes` |
+
+Hyphenated numbers that read as a date or a phone number are not sums:
+`2026-11-18` tells you the weekday, and `555-1234` or `555-123-4567` gets no
+answer row. Short groups such as `10-3` and `2026-1` still calculate, and
+spaces always mean subtraction: `555 - 1234`.
 
 Currency rates come from [ExchangeRate-API](https://www.exchangerate-api.com)
 (Rates By Exchange Rate API), fetched at most once a day and cached.

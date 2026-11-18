@@ -213,6 +213,14 @@ def _shift(base: date, sign: int, n: int, unit: str) -> Optional[date]:
     return None
 
 
+def _relative(days: int) -> str:
+    if days == 0:
+        return "today"
+    if abs(days) == 1:
+        return "tomorrow" if days > 0 else "yesterday"
+    return f"in {days:,} days" if days > 0 else f"{-days:,} days ago"
+
+
 def _span(days: int) -> str:
     weeks, rest = divmod(abs(days), 7)
     if weeks and rest:
@@ -260,6 +268,12 @@ def _date_answers(q: str, ctx: Context) -> Optional[List[Answer]]:
             return None
         return [Answer(value=target.strftime("%A"), copy=target.strftime("%A"),
                        detail=_day(target), kind="time")]
+    if _ISO.match(q):  # a bare 2026-11-18: what day it is, and how far off
+        target = parse_date(q, ctx)
+        if target is None:
+            return None
+        return [Answer(value=target.strftime("%A"), copy=target.strftime("%A"),
+                       detail=f"{_day(target)} · {_relative((target - today).days)}", kind="time")]
     m = _DIFF.match(q)
     if m:
         a, b = parse_date(m.group("a"), ctx), parse_date(m.group("b"), ctx)

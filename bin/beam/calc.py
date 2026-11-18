@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from datetime import date
 from decimal import Decimal, InvalidOperation, localcontext
 from typing import List, NamedTuple, Optional
 
@@ -333,9 +334,45 @@ def _special(s: str, ctx: Context) -> Optional[List[Answer]]:
     return None
 
 
+# Digit groups joined by bare hyphens read as a date or a phone number, not
+# as subtraction. Spaces around the minus ("555 - 1234") always mean maths.
+_ISO_DATE = re.compile(r"(?<![\d.-])(\d{4})-(\d{1,2})-(\d{1,2})(?![\d.-])")
+_HYPHENATED = re.compile(r"^\+?\d+(?:-\d+)+$")
+_PAREN_AREA = re.compile(r"^\(\d{3}\)\s?\d{3}-\d{4}$")
+
+
+def _is_date(y: str, m: str, d: str) -> bool:
+    try:
+        date(int(y), int(m), int(d))
+        return True
+    except ValueError:
+        return False
+
+
+def looks_like_date_or_phone(s: str) -> bool:
+    """`2026-11-18` anywhere, or a whole query like `555-1234`, `555-123-4567`,
+    `+1-555-123-4567` or `(555) 555-1234`. Short groups (`10-3`, `2026-1`,
+    `10-3-2`, `1000-2000`) stay arithmetic."""
+    if any(_is_date(*m.groups()) for m in _ISO_DATE.finditer(s)):
+        return True
+    if _PAREN_AREA.match(s):
+        return True
+    if not _HYPHENATED.match(s):
+        return False
+    groups = s.lstrip("+").split("-")
+    digits = sum(len(g) for g in groups)
+    if s.startswith("+"):
+        return digits >= 7  # international: +1-555-…, +44-20-…
+    if len(groups) >= 3:  # 555-123-4567, 1-800-555-0199, 020-7946-0958
+        return digits >= 7 and all(len(g) >= 3 for g in groups[1:])
+    return len(groups[0]) == 3 and len(groups[1]) == 4  # 555-1234
+
+
 def parse(q: str, ctx: Context) -> Optional[List[Answer]]:
     s = q.strip()
     if not s or len(s) > MAX_LEN or not _GATE.search(s):
+        return None
+    if looks_like_date_or_phone(s):
         return None
     try:
         special = _special(s, ctx)
