@@ -19,6 +19,12 @@ class Bases(unittest.TestCase):
         self.assertEqual(values("0b1010"), ["10", "0xa", "0o12"])
         self.assertEqual(values("0o17"), ["15", "0xf", "0b1111"])
 
+    def test_negative_literals(self):
+        # Not 0 × 10: the minus belongs to the literal.
+        self.assertEqual(values("-0x10"), ["-16", "-0b10000", "-0o20"])
+        self.assertEqual(values("-255 in hex")[0], "-0xff")
+        self.assertIsNone(devvals.parse("-42", CTX))  # bare decimals stay the calculator's
+
     def test_targets(self):
         self.assertEqual(values("255 in hex")[0], "0xff")
         self.assertEqual(values("255 to bin")[0], "0b11111111")

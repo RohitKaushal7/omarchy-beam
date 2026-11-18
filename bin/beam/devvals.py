@@ -11,7 +11,7 @@ from typing import List, Optional
 from . import fmt
 from .types import Answer, Context
 
-_LITERAL = re.compile(r"^\s*(?P<lit>0x[0-9a-f]+|0b[01]+|0o[0-7]+|\d+)\s*"
+_LITERAL = re.compile(r"^\s*(?P<neg>-)?(?P<lit>0x[0-9a-f]+|0b[01]+|0o[0-7]+|\d+)\s*"
                       r"(?:(?:in|to|as)\s+(?P<to>hex|hexadecimal|bin|binary|oct|octal|dec|decimal))?\s*$", re.I)
 _HEX_COLOR = re.compile(r"^\s*#(?P<hex>[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})\s*$", re.I)
 _RGB = re.compile(r"^\s*rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([\d.]+)\s*)?\)\s*$", re.I)
@@ -37,8 +37,11 @@ def _bases(q: str) -> Optional[List[Answer]]:
     if lit.isdigit() and not to:
         return None  # a bare decimal number is not a developer value
     n = int(lit, 0) if not lit.isdigit() else int(lit)
+    if m.group("neg"):
+        n, lit = -n, "-" + lit
     forms = _base_forms(n)
-    src = "dec" if lit.isdigit() else {"0x": "hex", "0b": "bin", "0o": "oct"}[lit[:2]]
+    digits = lit.lstrip("-")
+    src = "dec" if digits.isdigit() else {"0x": "hex", "0b": "bin", "0o": "oct"}[digits[:2]]
     order = [to] if to else ["dec"]
     order += [k for k in ("dec", "hex", "bin", "oct") if k not in order and k != src]
     names = {"dec": "decimal", "hex": "hex", "bin": "binary", "oct": "octal"}

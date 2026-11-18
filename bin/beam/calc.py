@@ -21,6 +21,8 @@ MAX_LEN = 200
 _NUM_GROUPED = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d{1,2}(?:,\d{2})*,\d{3})(?:\.\d+)?")
 _NUM = re.compile(r"(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
 _IDENT = re.compile(r"[A-Za-z_]+")
+# 0x10 is sixteen, not 0 × 10 (the implied-× rule below would read it that way).
+_BASE = re.compile(r"0(?:x[0-9a-f]+|b[01]+|o[0-7]+)(?![0-9a-z_.])", re.I)
 _GATE = re.compile(r"\d|\bpi\b|\bans\b|\b(?:" + "|".join(sorted(FUNCS)) + r")\s*\(", re.I)
 
 
@@ -47,6 +49,10 @@ def tokenize(s: str) -> Optional[List[Tok]]:
         c = s[i]
         if c.isspace():
             i += 1
+            continue
+        if c == "0" and (m := _BASE.match(s, i)):
+            toks.append(Tok("num", Decimal(int(m.group(), 0))))
+            i = m.end()
             continue
         if c.isdigit() or (c == "." and i + 1 < n and s[i + 1].isdigit()):
             m = None
