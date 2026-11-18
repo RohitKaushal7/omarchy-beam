@@ -1,3 +1,5 @@
+import json
+import os
 import subprocess
 import sys
 import time
@@ -98,7 +100,9 @@ class Cli(unittest.TestCase):
 
     def test_usage(self):
         self.assertEqual(self.run_cli().returncode, 2)
-        self.assertEqual(self.run_cli("version").stdout.strip(), "0.1.1")
+        # The helper's version follows the manifest, so a release bumps both.
+        manifest = json.load(open(os.path.join(os.path.dirname(BIN), "manifest.json")))
+        self.assertEqual(self.run_cli("version").stdout.strip(), manifest["version"])
 
 
 if __name__ == "__main__":
