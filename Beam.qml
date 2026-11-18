@@ -24,8 +24,10 @@ Item {
   property var manifest: null
 
   readonly property string pluginId: (root.manifest && root.manifest.id) || "dev.reuk.beam"
-  // Omarchy's facade when the shell provides it, Beam's own app source otherwise.
-  readonly property var appLibrary: root.shell && root.shell.appLibrary ? root.shell.appLibrary : appSource
+  // Omarchy's app library, which the shell hands every `menu` plugin: the same
+  // apps, hidden entries, launcher, terminal-app handling and launch feedback
+  // as the Omarchy menu.
+  readonly property var appLibrary: root.shell && root.shell.appLibrary ? root.shell.appLibrary : null
   readonly property var settings: settingsStore.settings
   readonly property var engines: Shortcuts.engines(root.settings.search.engines, root.settings.search.disabledBuiltins)
   readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/beam"
@@ -123,7 +125,7 @@ Item {
   function status(arg) {
     return JSON.stringify({ hasShell: !!root.shell, opened: root.opened, engineReady: engine.ready, engineDisabled: engine.disabled,
                             jev: root.jevStatus, entries: menuSource.entries.length,
-                            appLibrary: root.shell && root.shell.appLibrary ? "shell" : "beam",
+                            appLibrary: root.appLibrary ? "shell" : "none",
                             card: { x: card.x, y: card.y, width: card.width, height: card.height },
                             settingsCursor: settingsView.cursor,
                             settingsEditing: settingsView.editing,
@@ -529,8 +531,6 @@ Item {
   // ── wiring ──────────────────────────────────────────────────────────────
 
   ListModel { id: displayModel }
-
-  AppSource { id: appSource }
 
   Engine {
     id: engine

@@ -21,8 +21,8 @@ hl.unbind("SUPER + ALT + SPACE")
 o.bind("SUPER + ALT + SPACE", "Beam", "omarchy-shell shell toggle dev.reuk.beam '{}'")
 ```
 
-Requirements: Omarchy 4 and Python 3 (both ship with Omarchy). No other
-dependencies.
+Requirements: Omarchy 4.5 or newer and Python 3 (both ship with Omarchy). No
+other dependencies.
 
 ## Use
 
@@ -186,17 +186,14 @@ The box is a QML plugin inside `omarchy-shell`. Answers, conversions and Jev
 calls come from a small Python helper (standard library only) that starts the
 first time you open Beam, runs as `python3 -I` with a minimal environment, and
 exits after 10 idle minutes. Menu actions run exactly as the Omarchy menu runs
-them.
+them, and apps come from the shell's own app library, so Beam lists, hides
+and launches them as the menu's Apps list does (terminal apps through
+`omarchy-launch-tui`, with the same launch feedback).
 
-Two workarounds for the current Omarchy shell, both dropped automatically
-once the shell behaves:
-
-- The shell does not yet hand third-party menu plugins its app library, so
-  Beam lists apps itself from the same desktop entries, with the same hidden
-  entries and the same `gtk-launch` launcher.
-- After `shell.json` changes, the shell does not refresh a kept-loaded
-  plugin's handle to it, so Beam then saves its own entry in `shell.json` and
-  closes itself through `omarchy-shell shell hide`.
+One workaround for the Omarchy shell, dropped automatically once the shell
+behaves: if `shell.json` changes and the shell does not refresh a kept-loaded
+plugin's handle to it, Beam saves its own entry in `shell.json` and closes
+itself through `omarchy-shell shell hide`.
 
 ## Troubleshooting
 
