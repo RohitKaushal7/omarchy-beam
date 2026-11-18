@@ -192,3 +192,30 @@ test("recent picks break ties within a score tier, never across tiers", () => {
   const flipped = entry => ["a.theme-two", "a.theme-one"].indexOf(entry.id)
   assert.deepEqual(ids(Menu.search(t.items, entries, "theme", 0, flipped)).slice(0, 2), ["a.theme-two", "a.theme-one"])
 })
+
+test("disabled: rows that evaluate true leave search, as in the Omarchy menu's search", () => {
+  const t = tree(`{
+    "install": {"label":"Install"},
+    "install.browser": {"label":"Browser"},
+    "install.browser.firefox": {"label":"Firefox","disabled":"omarchy-pkg-present firefox","action":"x"},
+    "install.browser.zen": {"label":"Zen","when":"omarchy-hw-x86","disabled":"omarchy-pkg-present zen-browser-bin","action":"x"},
+  }`)
+  assert.equal(t.items["install.browser.firefox"].disabled, "omarchy-pkg-present firefox")
+  const guard = Menu.guardScript(t.items)
+  const fx = guard.ids.indexOf("install.browser.firefox")
+  const zen = guard.ids.indexOf("install.browser.zen")
+  assert.ok(fx >= 0 && zen >= 0)
+  assert.ok(guard.script.includes(`echo ${fx}:d:1`))
+  assert.ok(guard.script.includes(`echo ${zen}:w:1`) && guard.script.includes(`echo ${zen}:d:1`))
+  const out = `${fx}:d:1\n${zen}:w:1\n${zen}:d:0\n`
+  assert.deepEqual(Menu.parseGuardOutput(out, guard.ids), { "install.browser.zen": true })
+  const disabled = Menu.parseGuardOutput(out, guard.ids, "d")
+  assert.deepEqual(disabled, { "install.browser.firefox": true, "install.browser.zen": false })
+  const entries = Menu.searchable(t.items, t.itemOrder, {}, disabled)
+  assert.deepEqual(Menu.search(t.items, entries, "firefox"), [])
+  assert.equal(Menu.search(t.items, entries, "zen")[0].entry.id, "install.browser.zen")
+  // Before the guards answer, nothing is disabled, as in the menu.
+  assert.equal(Menu.search(t.items, Menu.searchable(t.items, t.itemOrder, {}), "firefox").length, 1)
+  // The submenu stays, as it does in the menu.
+  assert.ok(entries.some(e => e.id === "install.browser"))
+})

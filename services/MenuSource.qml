@@ -4,7 +4,7 @@ import QtQuick
 import "../lib/menu.js" as Menu
 import "../lib/proc.js" as Proc
 
-// Omarchy menu entries (default + user JSONC, `when:` guards), apps from the
+// Omarchy menu entries (default + user JSONC, `when:` and `disabled:` guards), apps from the
 // shell's app library and keybinding hints, ready for search and for Jev.
 Item {
   id: source
@@ -17,6 +17,7 @@ Item {
   property var items: ({})
   property var itemOrder: []
   property var whenResults: ({})
+  property var disabledResults: ({})
   property var entries: []
   property var bindings: []
   property bool guardsPending: false
@@ -54,7 +55,7 @@ Item {
   }
 
   function rebuildEntries() {
-    source.entries = Menu.searchable(source.items, source.itemOrder, source.whenResults).concat(source.appEntries())
+    source.entries = Menu.searchable(source.items, source.itemOrder, source.whenResults, source.disabledResults).concat(source.appEntries())
     source.changed()
   }
 
@@ -90,7 +91,7 @@ Item {
     return Menu.hintFor(label, source.bindings)
   }
 
-  // Re-check `when:` guards and keybindings; called on every open, as the
+  // Re-check `when:` and `disabled:` guards and keybindings; called on every open, as the
   // Omarchy menu does. Results replace the entries for the next keystroke.
   function refresh() {
     source.evaluateGuards()
@@ -135,7 +136,8 @@ Item {
     stdout: SplitParser { onRead: function(data) { guardProc.collected += data + "\n" } }
     onExited: function(exitCode, exitStatus) {
       if (exitCode === 0 && exitStatus === 0) {
-        source.whenResults = Menu.parseGuardOutput(guardProc.collected, guardProc.ids)
+        source.whenResults = Menu.parseGuardOutput(guardProc.collected, guardProc.ids, "w")
+        source.disabledResults = Menu.parseGuardOutput(guardProc.collected, guardProc.ids, "d")
         source.rebuildEntries()
       }
       if (source.guardsPending) Qt.callLater(source.evaluateGuards)
