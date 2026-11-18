@@ -33,12 +33,12 @@ Type, then press **Enter**.
 | `slack`, `files` | the app, with its icon |
 | `nightlight`, `reboot`, `theme` | Omarchy menu actions, with their keybinding |
 | `screen warmer` | ✦ the action Jev thinks you mean (optional, needs a key) |
-| `357/2` | `178.5`; Enter copies it |
+| `357/2` | `178.5`; Enter copies it, Shift+Enter pastes it into the app you were in |
 | `yt` then **Tab**, `lofi beats` | a YouTube search in your browser |
 | `github.com/omacom/omarchy` | opens the URL |
 | anything else | web search, or **Ask agent** with your default coding agent |
 
-Keys: **↑/↓** move · **Enter** run or copy · **Tab** search chip ·
+Keys: **↑/↓** move · **Enter** run or copy · **Shift+Enter** paste an answer · **Tab** search chip ·
 **Ctrl+C** copy the selected value · **Ctrl+,** settings · **Esc** clear, then close.
 
 Reboot, remove, update and install actions ask for a second Enter.
@@ -160,7 +160,9 @@ edits text, **Esc** goes back. Settings are stored on Beam's entry in
   clipboard paste, the key lookup) run under `timeout` with their output
   capped at the source, so a hung or runaway command can't stall or grow the
   shell. Commands are passed as arguments, never assembled as shell text;
-  copied values reach `wl-copy` on stdin, not on its command line.
+  copied values reach `wl-copy` on stdin, not on its command line. Shift+Enter
+  pastes by pressing Shift+Insert with `wtype`, as Omarchy's clipboard picker
+  does, so the value never appears on a command line there either.
 - **The key** is read from the environment, from your login shell (only while
   Jev is on; no stdin, 3 s, and only the value between marker bytes counts),
   or from the key file (a regular file of at most 4 KiB). It reaches the

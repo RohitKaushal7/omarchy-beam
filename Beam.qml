@@ -41,6 +41,7 @@ Item {
   property var pendingLocal: null
   property var lastLocal: null
   property bool enterQueued: false
+  property bool pasteQueued: false
   property string confirmKey: ""
   property string copiedKey: ""
   property var recent: []
@@ -84,6 +85,7 @@ Item {
     root.confirmKey = ""
     root.copiedKey = ""
     root.enterQueued = false
+    root.pasteQueued = false
     root.setText("")
     engine.start()
     menuSource.refresh()
@@ -221,7 +223,7 @@ Item {
     root.scheduleJev(answers.length > 0, local)
     if (root.enterQueued) {
       root.enterQueued = false
-      root.activateSelected()
+      root.activateSelected(root.pasteQueued)
     }
   }
 
@@ -347,16 +349,18 @@ Item {
     }
   }
 
-  function enter() {
+  // paste: Shift+Enter, which also types an answer into the focused app.
+  function enter(paste) {
     if (answerTimer.running) {
       root.enterQueued = true
+      root.pasteQueued = !!paste
       return
     }
-    root.activateSelected()
+    root.activateSelected(paste)
   }
 
-  function activateSelected() {
-    if (root.selectedIndex >= 0) root.activate(root.rows[root.selectedIndex])
+  function activateSelected(paste) {
+    if (root.selectedIndex >= 0) root.activate(root.rows[root.selectedIndex], paste)
   }
 
   function paste() {
@@ -364,9 +368,10 @@ Item {
     if (!pasteProc.running) pasteProc.running = true
   }
 
-  // The text goes to wl-copy on stdin, never on a command line.
-  function copyText(text) {
-    copyProc.pending.push(String(text))
+  // The text goes to wl-copy on stdin, never on a command line. With paste,
+  // Shift+Insert follows once wl-copy holds it, as the clipboard picker does.
+  function copyText(text, paste) {
+    copyProc.pending.push({ text: String(text), paste: !!paste })
     if (!copyProc.running) copyProc.next()
   }
 
@@ -391,12 +396,16 @@ Item {
     Util.execArgv(argv)
   }
 
-  function activate(r) {
+  function activate(r, paste) {
     if (!r) return
     if (r.kind === "answer") {
       if (!r.copy) return
-      root.copyText(r.copy)
+      root.copyText(r.copy, paste)
       engine.send({ op: "used", copy: r.copy })
+      if (paste) {
+        root.dismiss()  // the paste goes to whatever had focus before Beam
+        return
+      }
       root.copiedKey = r.key
       closeTimer.restart()
     } else if (r.kind === "shortcut") {
@@ -530,9 +539,12 @@ Item {
     id: copyProc
     property var pending: []
     property string current: ""
+    property bool pasteAfter: false
     function next() {
       if (copyProc.pending.length === 0) return
-      copyProc.current = copyProc.pending.shift()
+      var job = copyProc.pending.shift()
+      copyProc.current = job.text
+      copyProc.pasteAfter = job.paste
       copyProc.stdinEnabled = true
       copyProc.running = true
     }
@@ -542,7 +554,19 @@ Item {
       copyProc.current = ""
       copyProc.stdinEnabled = false  // closes stdin; wl-copy then serves the clipboard
     }
-    onExited: copyProc.next()
+    onExited: function(exitCode) {
+      if (copyProc.pasteAfter && exitCode === 0 && !pasteKeyProc.running) pasteKeyProc.running = true
+      copyProc.pasteAfter = false
+      copyProc.next()
+    }
+  }
+
+  // omarchy-clipboard-paste-text's paste: a moment for Beam's layer to unmap
+  // and focus to return to the app, then Shift+Insert. Only keys are typed;
+  // the value itself stays on the clipboard.
+  Process {
+    id: pasteKeyProc
+    command: Proc.bounded(["/bin/sh", "-c", "sleep 0.15 && exec wtype -M shift -k Insert -m shift"], 3, 1024)
   }
 
   Timer {
@@ -642,7 +666,7 @@ Item {
           } else if (event.key === Qt.Key_PageDown) {
             root.move(6)
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            root.enter()
+            root.enter((event.modifiers & Qt.ShiftModifier) !== 0)
           } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32
                      && event.text.charCodeAt(0) !== 127
                      && (event.modifiers & ~(Qt.ShiftModifier | Qt.KeypadModifier)) === 0) {

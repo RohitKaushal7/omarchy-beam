@@ -39,7 +39,8 @@ BorderSurface {
   readonly property real reservedLeft: Border.left(row.selectedBorderSpec)
   readonly property real reservedRight: Border.right(row.selectedBorderSpec)
   readonly property string trailing: row.copied ? "Copied"
-    : (row.jev ? "✦" : (row.kind === "menu" ? "›" : (row.kind === "shortcut" ? "Tab" : row.hint)))
+    : (row.isAnswer && row.hasCursor && !row.pending ? "Shift+Enter pastes"
+    : (row.jev ? "✦" : (row.kind === "menu" ? "›" : (row.kind === "shortcut" ? "Tab" : row.hint))))
 
   height: row.detail.length > 0 || row.confirming ? row.detailHeight : row.baseHeight
   radius: Style.cornerRadius
