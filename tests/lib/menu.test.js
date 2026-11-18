@@ -117,7 +117,8 @@ test("real Omarchy menu loads", { skip: !hasOmarchy }, () => {
   const t = tree(fs.readFileSync(DEFAULT_MENU, "utf8"))
   assert.ok(Object.keys(t.items).length > 100)
   const entries = Menu.searchable(t.items, t.itemOrder, {})
-  assert.equal(Menu.search(t.items, entries, "nightlight")[0].entry.id, "trigger.toggle.nightlight")
+  // 4.5 splits the toggle into Nightlight On / Off rows, one per `when:` state.
+  assert.match(Menu.search(t.items, entries, "nightlight")[0].entry.id, /^trigger\.toggle\.nightlight(-on|-off)?$/)
   assert.ok(Menu.guardScript(t.items).script.length > 0)
 })
 
