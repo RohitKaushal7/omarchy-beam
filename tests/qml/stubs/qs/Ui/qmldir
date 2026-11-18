@@ -1,0 +1,7 @@
+module qs.Ui
+BorderSurface 1.0 BorderSurface.qml
+ToggleSwitch 1.0 ToggleSwitch.qml
+NumberField 1.0 NumberField.qml
+Dropdown 1.0 Dropdown.qml
+TextField 1.0 TextField.qml
+PointerMoveGate 1.0 PointerMoveGate.qml

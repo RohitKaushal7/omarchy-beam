@@ -141,6 +141,11 @@ choices (**Shift** for bigger steps), **Enter** or **Space** flips a switch or
 edits text, **Esc** goes back. Settings are stored on Beam's entry in
 `~/.config/omarchy/shell.json`.
 
+Move onto a feature (a source, Jev, home currency, grouping, digits, the
+search engine, confirmations, hints) and its row opens to list what you can
+type and what you get, such as `2 weeks in days → 14 days`, dimmed while
+the feature is off.
+
 <img src="screenshots/settings.png" alt="Beam settings" width="560">
 
 ## Privacy
@@ -211,8 +216,13 @@ stays loaded between opens).
 cd ~/.config/omarchy/plugins/dev.reuk.beam
 python3 -m unittest discover -s tests -t tests
 node --test tests/lib/
+QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -import tests/qml/stubs -input tests/qml
 omarchy plugin validate .
 ```
+
+The settings examples live in `lib/examples.js`; `tests/test_examples.py`
+runs each one through the helper, so a changed answer fails the tests until
+its example is updated.
 
 Beam stays loaded between opens, so run `omarchy-restart-shell` after editing
 its QML. `python3 bin/beam.py eval "5 ft in cm"` prints the engine's answer for

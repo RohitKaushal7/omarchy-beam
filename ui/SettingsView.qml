@@ -2,10 +2,14 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 import "../lib/settings.js" as Settings
+import "../lib/examples.js" as Examples
+import "../lib/shortcuts.js" as Shortcuts
 
 // Beam settings: one compact row per setting (icon · label · control), keyboard
 // first. ↑/↓ move, ←/→ change numbers and choices, Space/Enter flips a switch
 // or edits text, Esc goes back. Every change goes through SettingsStore.set.
+// The focused row of a feature grows to list what it accepts and gives
+// (lib/examples.js); the others stay one line.
 FocusScope {
   id: view
 
@@ -19,6 +23,17 @@ FocusScope {
   property int rowHeight: Style.space(50)
   property int detailRowHeight: Style.space(58)
 
+  // Example lines under the focused feature: one fixed height each, so a row
+  // knows its full height the moment the cursor lands on it.
+  readonly property int exampleLineHeight: Math.ceil(exampleMetrics.height)
+  readonly property int exampleSpacing: Style.space(3)
+
+  FontMetrics {
+    id: exampleMetrics
+    font.family: Style.font.family
+    font.pixelSize: Style.font.bodySmall
+  }
+
   property int cursor: -1
   property bool editing: false
   property var activeEditor: null
@@ -26,6 +41,8 @@ FocusScope {
   signal closeRequested()
 
   readonly property var settings: view.store ? view.store.settings : ({})
+  readonly property var engines: view.settings.search
+    ? Shortcuts.engines(view.settings.search.engines, view.settings.search.disabledBuiltins) : []
   readonly property string jevText: ({
     "env": "Key found in TYPESAFE_API_KEY ✓",
     "file": "Key found in the key file ✓",
@@ -91,8 +108,21 @@ FocusScope {
   function move(delta) {
     pointerGate.reset()
     view.cursor = Settings.nextField(view.rows, view.cursor, delta)
-    if (view.cursor >= 0) list.positionViewAtIndex(view.cursor, ListView.Contain)
+    view.reveal()
   }
+
+  // Keep the focused row, examples and all, inside the list. The row grows or
+  // shrinks as the cursor lands on it, so lay the list out before measuring.
+  function reveal() {
+    if (view.cursor < 0 || !view.visible) return
+    list.forceLayout()
+    list.positionViewAtIndex(view.cursor, ListView.Contain)
+  }
+
+  // Hover and clicks move the cursor too, and a settings change can add or
+  // drop example lines (a new search engine); reveal after those as well.
+  onCursorChanged: Qt.callLater(view.reveal)
+  onSettingsChanged: Qt.callLater(view.reveal)
 
   function change(delta) {
     var spec = view.rows[view.cursor]
@@ -169,6 +199,7 @@ FocusScope {
 
     ListView {
       id: list
+      objectName: "settingsList"
       width: parent.width
       focus: false
       keyNavigationEnabled: false  // the view owns the arrow keys
@@ -233,12 +264,22 @@ FocusScope {
       readonly property int rowIndex: parent ? parent.rowIndex : -1
       readonly property bool hasCursor: view.cursor === rowItem.rowIndex
       readonly property string description: spec.description || ""
+      readonly property var examples: Examples.forPath(spec.path || "", view.settings, view.engines, Shortcuts.BUILTINS)
+      readonly property bool expanded: rowItem.hasCursor && rowItem.examples.length > 0
+      readonly property bool featureOff: spec.type === "bool" && view.get(spec.path) !== true
+      readonly property int headHeight: description ? view.detailRowHeight : view.rowHeight
+      readonly property int exampleCount: rowItem.examples.length + (rowItem.featureOff ? 1 : 0)
+      readonly property int examplesHeight: rowItem.expanded
+        ? rowItem.exampleCount * view.exampleLineHeight + (rowItem.exampleCount - 1) * view.exampleSpacing
+          + Style.space(10)
+        : 0
 
       function edit() {
         if (textControl.item) textControl.item.startEdit()
       }
 
-      height: description ? view.detailRowHeight : view.rowHeight
+      // No animation: the cursor moves through many rows a keystroke at a time.
+      height: rowItem.headHeight + rowItem.examplesHeight
       radius: Style.cornerRadius
       color: rowItem.hasCursor ? view.selectedBackground : "transparent"
       borderSpec: rowItem.hasCursor ? view.selectedBorderSpec : Border.none()
@@ -249,11 +290,19 @@ FocusScope {
         onPositionChanged: function(mouse) {
           if (pointerGate.moved(rowItem, mouse)) view.cursor = rowItem.rowIndex
         }
-        onClicked: {
+        onClicked: function(mouse) {
           view.cursor = rowItem.rowIndex
           view.refocus()
-          view.activate()
+          if (mouse.y < rowItem.headHeight) view.activate()  // the example lines only display
         }
+      }
+
+      Item {
+        id: head
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: rowItem.headHeight
       }
 
       Text {
@@ -267,7 +316,7 @@ FocusScope {
         horizontalAlignment: Text.AlignHCenter
         anchors.left: parent.left
         anchors.leftMargin: Style.space(8)
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenter: head.verticalCenter
       }
 
       Column {
@@ -275,7 +324,7 @@ FocusScope {
         anchors.leftMargin: Style.space(6)
         anchors.right: control.left
         anchors.rightMargin: Style.space(12)
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenter: head.verticalCenter
         spacing: Style.space(2)
 
         Text {
@@ -306,7 +355,7 @@ FocusScope {
         id: control
         anchors.right: parent.right
         anchors.rightMargin: Style.space(10)
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenter: head.verticalCenter
         width: spec.type === "text" ? Math.round(rowItem.width * 0.42)
           : (spec.type === "choice" ? Style.space(180) : (spec.type === "int" ? Style.space(120) : switchControl.width))
         height: Math.max(switchControl.height, Style.spacing.controlHeight)
@@ -378,6 +427,111 @@ FocusScope {
                 view.set(spec.path, text)
                 view.refocus()
                 event.accepted = true
+              }
+            }
+          }
+        }
+      }
+
+      // What the feature accepts and gives: query → result (aside). Shown,
+      // dimmed, while the feature is off, so you can see what turning it on
+      // brings. Display only; nothing here runs.
+      Loader {
+        id: examplesBlock
+        objectName: "examples"
+        anchors.top: head.bottom
+        anchors.left: parent.left
+        anchors.leftMargin: Style.space(50)
+        anchors.right: parent.right
+        anchors.rightMargin: Style.space(14)
+        active: rowItem.expanded
+
+        sourceComponent: Column {
+          id: block
+          spacing: view.exampleSpacing
+
+          // One width for every query, so the arrows line up.
+          readonly property real queryColumn: {
+            var widest = 0
+            for (var i = 0; i < rowItem.examples.length; i++) {
+              widest = Math.max(widest, exampleMetrics.advanceWidth(Examples.queryText(rowItem.examples[i])))
+            }
+            return Math.ceil(Math.min(widest, block.width * 0.45))
+          }
+
+          Text {
+            objectName: "offCaption"
+            textFormat: Text.PlainText
+            width: block.width
+            height: view.exampleLineHeight
+            verticalAlignment: Text.AlignVCenter
+            visible: rowItem.featureOff
+            text: "Off · Enter turns it on and gives you these"
+            color: view.foreground
+            opacity: 0.6
+            font.family: view.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            font.italic: true
+            elide: Text.ElideRight
+          }
+
+          Repeater {
+            model: rowItem.examples
+
+            Item {
+              id: line
+              required property var modelData
+              readonly property string note: Examples.noteText(modelData)
+              width: block.width
+              height: view.exampleLineHeight
+              opacity: rowItem.featureOff || modelData.off ? 0.45 : 1
+
+              Text {
+                id: query
+                textFormat: Text.PlainText
+                width: Math.min(implicitWidth, block.queryColumn)
+                text: Examples.queryText(line.modelData)
+                color: view.selectedText
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                id: arrow
+                textFormat: Text.PlainText
+                x: block.queryColumn + Style.space(8)
+                text: "→"
+                color: view.foreground
+                opacity: 0.4
+                font.family: view.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              Text {
+                id: result
+                textFormat: Text.PlainText
+                x: arrow.x + arrow.width + Style.space(8)
+                width: Math.min(implicitWidth, Math.max(0, line.width - x))
+                text: String(line.modelData.a || "")
+                color: view.foreground
+                opacity: 0.78
+                font.family: view.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                textFormat: Text.PlainText
+                x: result.x + result.width + Style.space(6)
+                width: Math.max(0, line.width - x)
+                visible: line.note.length > 0 && width > Style.space(24)
+                text: line.note
+                color: view.foreground
+                opacity: 0.42
+                font.family: view.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
               }
             }
           }
