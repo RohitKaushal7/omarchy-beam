@@ -601,7 +601,7 @@ Item {
       copyProc.stdinEnabled = false  // closes stdin; wl-copy then serves the clipboard
     }
     onExited: function(exitCode) {
-      if (copyProc.pasteAfter && exitCode === 0 && !pasteKeyProc.running) pasteKeyProc.running = true
+      if (copyProc.pasteAfter && exitCode === 0 && !pasteKeyProc.running) pasteDelay.restart()
       copyProc.pasteAfter = false
       copyProc.next()
     }
@@ -610,9 +610,15 @@ Item {
   // omarchy-clipboard-paste-text's paste: a moment for Beam's layer to unmap
   // and focus to return to the app, then Shift+Insert. Only keys are typed;
   // the value itself stays on the clipboard.
+  Timer {
+    id: pasteDelay
+    interval: 150
+    onTriggered: if (!pasteKeyProc.running) pasteKeyProc.running = true
+  }
+
   Process {
     id: pasteKeyProc
-    command: Proc.bounded(["/bin/sh", "-c", "sleep 0.15 && exec wtype -M shift -k Insert -m shift"], 3, 1024)
+    command: Proc.bounded(["/usr/bin/wtype", "-M", "shift", "-k", "Insert", "-m", "shift"], 3, 1024)
   }
 
   Timer {
