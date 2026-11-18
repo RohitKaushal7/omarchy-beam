@@ -42,6 +42,9 @@ Item {
   property var lastLocal: null
   property bool enterQueued: false
   property bool pasteQueued: false
+  // The serial of the last keystroke sent to the helper, and of the last reply.
+  property int answerAsked: -1
+  property int answerHeard: -1
   property string confirmKey: ""
   property string copiedKey: ""
   property var recent: []
@@ -98,6 +101,7 @@ Item {
   function close() {
     root.opened = false
     answerTimer.stop()
+    enterWait.stop()
     jevTimer.stop()
     closeTimer.stop()
   }
@@ -140,10 +144,12 @@ Item {
     root.serial += 1
     root.confirmKey = ""
     root.enterQueued = false  // an Enter waiting on the previous text must not act on this one
+    enterWait.stop()
     jevTimer.stop()
     var local = root.localParts(text)
     if (!root.chip && text.trim() && root.answersEnabled() && !engine.disabled && Precheck.mayBeAnswer(text)) {
       root.pendingLocal = local
+      root.answerAsked = root.serial
       engine.send({ op: "answer", id: root.serial, q: text })
       answerTimer.restart()
     } else {
@@ -237,8 +243,8 @@ Item {
     root.selectedKey = Compose.firstSelectableKey(next)
     root.scheduleJev(answers.length > 0, local)
     if (root.enterQueued) {
-      root.enterQueued = false
-      root.activateSelected(root.pasteQueued)
+      if (root.awaitingAnswer()) enterWait.start()  // the helper is slow to start; hold Enter for it
+      else root.flushEnter()
     }
   }
 
@@ -319,11 +325,17 @@ Item {
       root.jevStatus = String(msg.jev || "unknown")
     } else if (msg.op === "answer") {
       if (msg.id !== root.serial || !root.opened) return
+      root.answerHeard = msg.id
       if (root.pendingLocal) root.commit(msg.answers || [], root.pendingLocal)
       else if (msg.update) root.updateAnswers(msg.answers || [])
       else {
         var late = Compose.answerRows(msg.answers || [])
         for (var i = 0; i < late.length; i++) root.lateInsert(late[i])
+        if (root.enterQueued) {
+          // Enter was held for this answer, so it gets the cursor, as it would have on time.
+          if (late.length > 0) root.selectedKey = late[0].key
+          root.flushEnter()
+        }
       }
     } else if (msg.op === "jev") {
       if (msg.status) root.jevStatus = String(msg.status)
@@ -364,14 +376,33 @@ Item {
     }
   }
 
+  // An answer was asked for this text and has not come back, and the text
+  // reads like one (357/2, not firefox 2). Only a starting or restarting
+  // helper is ever this slow.
+  function awaitingAnswer() {
+    return root.answerAsked === root.serial && root.answerHeard !== root.serial && !engine.disabled
+      && Precheck.likelyAnswer(root.filterText)
+  }
+
   // paste: Shift+Enter, which also types an answer into the focused app.
+  // Enter waits for the first redraw (at most 40 ms) and, for text that reads
+  // like a sum, for its answer (at most enterWait), so 357/2⏎ never falls
+  // through to web search.
   function enter(paste) {
-    if (answerTimer.running) {
+    if (answerTimer.running || root.awaitingAnswer()) {
       root.enterQueued = true
       root.pasteQueued = !!paste
+      if (!answerTimer.running) enterWait.start()
       return
     }
     root.activateSelected(paste)
+  }
+
+  function flushEnter() {
+    enterWait.stop()
+    if (!root.enterQueued) return
+    root.enterQueued = false
+    root.activateSelected(root.pasteQueued)
   }
 
   function activateSelected(paste) {
@@ -588,6 +619,13 @@ Item {
     id: answerTimer
     interval: 40
     onTriggered: if (root.pendingLocal) root.commit([], root.pendingLocal)
+  }
+
+  // The longest Enter waits on a missing answer before running the selected row.
+  Timer {
+    id: enterWait
+    interval: 1500
+    onTriggered: root.flushEnter()
   }
 
   Timer {
