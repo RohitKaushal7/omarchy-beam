@@ -819,11 +819,11 @@ Item {
 
             add: Transition {
               enabled: root.animateInsert
-              NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140; easing.type: Easing.OutCubic }
+              NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Style.duration(140); easing.type: Easing.OutCubic }
             }
             addDisplaced: Transition {
               enabled: root.animateInsert
-              NumberAnimation { property: "y"; duration: 140; easing.type: Easing.OutCubic }
+              NumberAnimation { property: "y"; duration: Style.duration(140); easing.type: Easing.OutCubic }
             }
 
             delegate: ResultRow {
