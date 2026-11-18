@@ -170,6 +170,19 @@ Item {
     return out
   }
 
+  // Recent picks break ties between equally good matches (see Menu.search).
+  function recentRanker() {
+    var rank = ({})
+    for (var i = 0; i < root.recent.length; i++) {
+      var key = root.recent[i] && root.recent[i].key
+      if (key && rank[key] === undefined) rank[key] = i
+    }
+    return function(entry) {
+      var at = rank[menuSource.keyFor(entry)]
+      return at === undefined ? -1 : at
+    }
+  }
+
   function localParts(text) {
     var t = text.trim()
     var s = root.settings.sources
@@ -198,7 +211,7 @@ Item {
       parts.url = Shortcuts.detectUrl(t)
       if (parts.url) parts.lead.push(Compose.urlRow(parts.url))
     }
-    var found = Menu.search(menuSource.items, root.searchEntries(), t, 30)
+    var found = Menu.search(menuSource.items, root.searchEntries(), t, 30, s.recent ? root.recentRanker() : null)
     for (var i = 0; i < found.length; i++) {
       if (found[i].score < Menu.STRONG_SCORE) parts.strongLocal = true
       parts.results.push(root.entryRow(found[i].entry))

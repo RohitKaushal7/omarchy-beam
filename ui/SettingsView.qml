@@ -38,7 +38,7 @@ FocusScope {
     { title: "Sources", icon: "󰀻", items: [
       { path: "sources.apps", type: "bool", icon: "󰀻", label: "Apps" },
       { path: "sources.actions", type: "bool", icon: "󱓞", label: "Omarchy actions" },
-      { path: "sources.recent", type: "bool", icon: "󰋚", label: "Recent picks", description: "Shown before you type" },
+      { path: "sources.recent", type: "bool", icon: "󰋚", label: "Recent picks", description: "Shown before you type; lead equal matches" },
       { path: "sources.calculator", type: "bool", icon: "󰃬", label: "Calculator" },
       { path: "sources.units", type: "bool", icon: "󰑭", label: "Unit conversion" },
       { path: "sources.currency", type: "bool", icon: "󰇁", label: "Currency", description: "Daily rates from ExchangeRate-API" },

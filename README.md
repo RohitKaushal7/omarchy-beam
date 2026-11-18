@@ -43,6 +43,10 @@ Keys: **↑/↓** move · **Enter** run or copy · **Shift+Enter** paste an answ
 
 Reboot, remove, update and install actions ask for a second Enter.
 
+With nothing typed, Beam lists your recent picks. Once you type, a recent pick
+goes first among equally good matches, but never ahead of a better match: an
+exact or prefix match still beats a recent pick that only contains the text.
+
 ## Screenshots
 
 <table>

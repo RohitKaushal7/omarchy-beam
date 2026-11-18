@@ -169,3 +169,26 @@ test("Jev only sees apps and everyday actions, not install/remove/update entries
   assert.equal(Menu.jevEligible({ id: "remove.theme", kind: "action" }), false)
   assert.equal(Menu.jevEligible({ id: "update", kind: "menu" }), false)
 })
+
+test("recent picks break ties within a score tier, never across tiers", () => {
+  const t = tree(`{
+    "a": {"label":"A"},
+    "a.theme-one": {"label":"Theme one","action":"x"},
+    "a.theme-two": {"label":"Theme two","action":"x"},
+    "a.my-theme": {"label":"My theme","action":"x"},
+  }`)
+  const entries = Menu.searchable(t.items, t.itemOrder, {})
+  const ids = rows => rows.map(r => r.entry.id)
+  // Without recents: prefix matches in menu order, then the contains match.
+  assert.deepEqual(ids(Menu.search(t.items, entries, "theme")), ["a.theme-one", "a.theme-two", "a.my-theme"])
+  const recent = ["a.my-theme", "a.theme-two"]
+  const rankOf = entry => recent.indexOf(entry.id)
+  // Theme two was picked recently, so it leads its tier; My theme was picked
+  // more recently still, but a contains match never climbs over a prefix one.
+  assert.deepEqual(ids(Menu.search(t.items, entries, "theme", 0, rankOf)), ["a.theme-two", "a.theme-one", "a.my-theme"])
+  // The more recent of two recents wins inside a tier.
+  const both = entry => ["a.theme-one", "a.theme-two"].indexOf(entry.id)
+  assert.deepEqual(ids(Menu.search(t.items, entries, "theme", 0, both)).slice(0, 2), ["a.theme-one", "a.theme-two"])
+  const flipped = entry => ["a.theme-two", "a.theme-one"].indexOf(entry.id)
+  assert.deepEqual(ids(Menu.search(t.items, entries, "theme", 0, flipped)).slice(0, 2), ["a.theme-two", "a.theme-one"])
+})
