@@ -50,6 +50,8 @@ Item {
   property int layoutSerial: 0
   // "Press Enter again" is for the row it was armed on; moving away cancels it.
   onSelectedKeyChanged: if (root.confirmKey && root.selectedKey !== root.confirmKey) root.confirmKey = ""
+  // The search line shows filterText; edits made here (Backspace, paste, chips) flow back to it.
+  onFilterTextChanged: if (filterInput.text !== root.filterText) filterInput.text = root.filterText
 
   // Omarchy menu surface tokens, so themes that style the menu style Beam.
   property color background: Color.menu.background
@@ -90,7 +92,7 @@ Item {
     engine.start()
     menuSource.refresh()
     if (root.appLibrary) root.appLibrary.refreshIcons()
-    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { filterInput.forceActiveFocus() })
   }
 
   function close() {
@@ -460,7 +462,7 @@ Item {
 
   function closeSettings() {
     root.settingsOpen = false
-    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { filterInput.forceActiveFocus() })
   }
 
   // ── layout helpers (the menu's fold: end mid-row when rows overflow) ────
@@ -643,14 +645,16 @@ Item {
 
       MouseArea { anchors.fill: parent; onClicked: {} }
 
+      // Focus is on filterInput, which forwards every key here first and types
+      // whatever this leaves unaccepted, input-method text included.
       Item {
         id: keyCatcher
         anchors.fill: parent
-        focus: true
 
         Keys.priority: Keys.BeforeItem
         Keys.onPressed: function(event) {
           var ctrl = (event.modifiers & Qt.ControlModifier) !== 0
+          var shift = (event.modifiers & Qt.ShiftModifier) !== 0
           if (event.key === Qt.Key_Escape) {
             if (root.confirmKey) root.confirmKey = ""
             else if (root.filterText || root.chip) {
@@ -661,10 +665,12 @@ Item {
             root.openSettings()
           } else if (ctrl && event.key === Qt.Key_C) {
             root.copySelected()
-          } else if (ctrl && event.key === Qt.Key_V) {
-            root.paste()
+          } else if ((ctrl && event.key === Qt.Key_V) || (shift && event.key === Qt.Key_Insert)) {
+            root.paste()  // flattened and capped, rather than the text field's own paste
           } else if (event.key === Qt.Key_Tab) {
             root.tab()
+          } else if (event.key === Qt.Key_Backtab) {
+            // nothing to go back to; never let it move focus off the search line
           } else if (event.key === Qt.Key_Backspace && !root.filterText && root.chip) {
             root.chip = null
             root.setText("")
@@ -679,11 +685,7 @@ Item {
           } else if (event.key === Qt.Key_PageDown) {
             root.move(6)
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            root.enter((event.modifiers & Qt.ShiftModifier) !== 0)
-          } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32
-                     && event.text.charCodeAt(0) !== 127
-                     && (event.modifiers & ~(Qt.ShiftModifier | Qt.KeypadModifier)) === 0) {
-            root.setText(root.filterText + event.text)
+            root.enter(shift)
           } else {
             return
           }
@@ -716,16 +718,49 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
             }
 
-            Text {
-              textFormat: Text.PlainText
+            Item {
               width: parent.width - (root.chip ? Style.space(140) : 0)
+              height: root.headerHeight
               anchors.verticalCenter: parent.verticalCenter
-              text: root.settingsOpen ? "Beam settings" : (root.filterText || (root.chip ? "Search " + root.chip.name + "…" : "Beam…"))
-              color: root.foreground
-              opacity: root.filterText || root.settingsOpen ? 1 : 0.58
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.heading
-              elide: Text.ElideRight
+
+              // A TextInput, not a Text fed by key events, so fcitx5 and other
+              // input methods (and dead keys) can type here.
+              FilterInput {
+                id: filterInput
+                anchors.fill: parent
+                visible: !root.settingsOpen
+                keyHandler: keyCatcher
+                verticalAlignment: TextInput.AlignVCenter
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.heading
+                // Input-method commits can carry newlines; the box is one line.
+                onTextChanged: {
+                  var clean = text.replace(/\s*[\r\n]+\s*/g, " ")
+                  if (clean !== root.filterText) root.setText(clean)
+                  else if (clean !== text) text = clean
+                }
+              }
+
+              Text {
+                textFormat: Text.PlainText
+                anchors.fill: parent
+                verticalAlignment: Text.AlignVCenter
+                visible: root.settingsOpen || (!root.filterText && !filterInput.preeditText)
+                text: root.settingsOpen ? "Beam settings" : (root.chip ? "Search " + root.chip.name + "…" : "Beam…")
+                color: root.foreground
+                opacity: root.settingsOpen ? 1 : 0.58
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.heading
+                elide: Text.ElideRight
+              }
+
+              // The pointer never edits the line: no selecting, no middle-click
+              // paste around Ctrl+V's cap.
+              MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.AllButtons
+              }
             }
           }
         }
