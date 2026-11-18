@@ -36,6 +36,19 @@ CLAIMED = [
     ("5'11\" in cm", "180.34 cm"),
     ("5'11", "180.34 cm"),
     ("6 ft 2 in to m", "1.8796 m"),
+    # Word units take a plural when the number isn't one.
+    ("2 weeks in days", "14 days"),
+    ("7 days in weeks", "1 week"),
+    ("14 days in weeks", "2 weeks"),
+    ("36 hours in days", "1.5 days"),
+    ("1 year in months", "12 months"),
+    ("6 months in years", "0.5 years"),
+    ("16 bits in bits", "16 bits"),
+    ("1 bit in bits", "1 bit"),
+    ("2 cups in ml", "473.176473 ml"),
+    ("500 ml in cups", "2.113376419 cups"),
+    ("1 ha in acres", "2.471053815 acres"),
+    ("720 deg in turns", "2 turns"),
 ]
 
 DEFAULTS = [
@@ -79,6 +92,16 @@ class Units(unittest.TestCase):
         for query in NOT_CLAIMED:
             with self.subTest(query=query[:20]):
                 self.assertIsNone(units.parse(query, CTX))
+
+
+class Plurals(unittest.TestCase):
+    def test_detail_label(self):
+        self.assertEqual(units.parse("2 weeks in days", CTX)[0].detail, "2 weeks → days")
+        self.assertEqual(units.parse("1 week in days", CTX)[0].detail, "1 week → days")
+        self.assertEqual(units.parse("3 days", CTX)[0].detail, "3 days → h")
+
+    def test_copy_stays_a_number(self):
+        self.assertEqual(units.parse("2 weeks in days", CTX)[0].copy, "14")
 
 
 if __name__ == "__main__":

@@ -203,6 +203,16 @@ def _resolve(src_name: str, dst_name: Optional[str]) -> Optional[Tuple[str, Opti
     return src, dst
 
 
+# Units written as words take a plural; symbols (min, h, kg) never do.
+PLURALS = {"day": "days", "week": "weeks", "month": "months", "year": "years",
+           "cup": "cups", "acre": "acres", "bit": "bits", "turn": "turns"}
+
+
+def unit_name(sym: str, amount: str) -> str:
+    """The unit as written after `amount` (a plain number): 1 day, 14 days."""
+    return sym if amount in ("1", "-1") else PLURALS.get(sym, sym)
+
+
 def _answers(value: Decimal, src: str, targets: List[str], label: str, ctx: Context) -> List[Answer]:
     digits = ctx.settings.significant_digits
     grouping = fmt.resolve_grouping(ctx.settings.grouping, ctx.locale)
@@ -210,8 +220,9 @@ def _answers(value: Decimal, src: str, targets: List[str], label: str, ctx: Cont
     for dst in targets:
         result = convert(value, src, dst)
         sep = "" if dst in ("°", "°C", "°F", "'", '"') else " "
-        out.append(Answer(value=f"{fmt.display(result, digits, grouping)}{sep}{dst}",
-                          copy=fmt.plain(result, digits), detail=f"{label} → {dst}", kind="units"))
+        amount = fmt.plain(result, digits)
+        out.append(Answer(value=f"{fmt.display(result, digits, grouping)}{sep}{unit_name(dst, amount)}",
+                          copy=amount, detail=f"{label} → {PLURALS.get(dst, dst)}", kind="units"))
     return out
 
 
@@ -242,4 +253,5 @@ def parse(q: str, ctx: Context) -> Optional[List[Answer]]:
     targets = [dst] if dst else DEFAULT_TARGETS.get(src, [])
     if not targets:
         return None
-    return _answers(value, src, targets, f"{fmt.plain(value)} {src}", ctx)
+    amount = fmt.plain(value)
+    return _answers(value, src, targets, f"{amount} {unit_name(src, amount)}", ctx)
