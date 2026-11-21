@@ -41,6 +41,15 @@ Type, then press **Enter**.
 Keys: **↑/↓** move · **Enter** run or copy · **Shift+Enter** paste an answer · **Tab** search chip ·
 **Ctrl+C** copy the selected value · **Ctrl+,** settings · **Esc** clear, then close.
 
+Editing what you typed: **←/→** move the caret (**Ctrl+←/→** a word at a
+time), **Home/End** go to either end, and **Shift** with any of them selects.
+**Ctrl+A** selects everything. Typing, **Backspace** and **Delete** (with
+**Ctrl**, a word) work at the caret or replace the selection, **Ctrl+U**
+deletes everything before the caret, and **Ctrl+V** pastes at the caret.
+With text selected, **Ctrl+C** copies that text instead of the selected row.
+Clicking in the line puts the caret there. The caret stays hidden while you
+type at the end, and shows once you move it.
+
 Reboot, remove, update and install actions ask for a second Enter, a fresh
 press: holding Enter down does not confirm.
 
@@ -184,6 +193,12 @@ the feature is off.
   helper only through its environment, never a command line, log or file.
 - **Files** are written atomically through randomly named temp files with
   owner-only permissions; reads are size-capped and accept regular files only.
+- **Clipboard:** the search line reads it only when you paste (Ctrl+V or
+  Shift+Insert), through the bounded `wl-paste` above; its own copy, cut and
+  paste keys are off, and the pointer never selects text there, so nothing
+  reaches the primary selection. Beam's text inputs (the search line, and the
+  settings fields, which paste as any Qt field does) exist only while Beam or
+  its settings are open, since an editable Qt input watches the clipboard.
 - **Display:** every label is rendered as plain text, never rich text.
 
 ## How it runs

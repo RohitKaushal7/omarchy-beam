@@ -14,6 +14,7 @@ import "lib/precheck.js" as Precheck
 import "lib/compose.js" as Compose
 import "lib/proc.js" as Proc
 import "lib/keys.js" as SearchKeys
+import "lib/edit.js" as Edit
 
 // Beam: one box for apps, Omarchy actions, inline answers, search shortcuts
 // and URLs. Stability rules (spec §2.5): only keystrokes rebuild the list;
@@ -56,15 +57,18 @@ Item {
   property int layoutSerial: 0
   // "Press Enter again" is for the row it was armed on; moving away cancels it.
   onSelectedKeyChanged: if (root.confirmKey && root.selectedKey !== root.confirmKey) root.confirmKey = ""
-  // The search line shows filterText; edits made here (Backspace, paste, chips) flow back to it.
+  // The search line, while Beam is open (see searchLine); null otherwise.
+  readonly property SearchInput searchInput: searchLine.item as SearchInput
+  // The search line shows filterText. Text set here (Esc, chips, a new open)
+  // reaches it with the caret at the end; edits made there flow back.
   onFilterTextChanged: {
-    var input = searchLine.item
+    var input = root.searchInput
     if (input && input.text !== root.filterText) input.text = root.filterText
   }
   // The settings view, while it shows (see settingsLoader); null otherwise.
   readonly property SettingsView settingsView: settingsLoader.item as SettingsView
   // Input-method text being composed on the search line (shown, not yet typed).
-  readonly property bool composing: !!searchLine.item && (searchLine.item as TextInput).preeditText.length > 0
+  readonly property bool composing: !!root.searchInput && root.searchInput.preeditText.length > 0
 
   // Omarchy menu surface tokens, so themes that style the menu style Beam.
   property color background: Color.menu.background
@@ -484,7 +488,7 @@ Item {
   }
 
   // A search-line key, as lib/keys.js routed it.
-  function perform(action, event) {
+  function perform(action) {
     if (action.op === "unconfirm") {
       root.confirmKey = ""
     } else if (action.op === "clear" || action.op === "unchip") {
@@ -496,12 +500,14 @@ Item {
       root.openSettings()
     } else if (action.op === "copy") {
       root.copySelected()
+    } else if (action.op === "copyText") {
+      root.copyText(Edit.selected(root.searchState()))
     } else if (action.op === "paste") {
       root.paste()
     } else if (action.op === "tab") {
       root.tab()
     } else if (action.op === "edit") {
-      root.setText(Util.editedFilter(event, root.filterText))
+      root.applyEdit(Edit.apply(root.searchState(), action))
     } else if (action.op === "move") {
       root.move(action.delta)
     } else if (action.op === "enter") {
@@ -520,7 +526,23 @@ Item {
   }
 
   function focusSearch() {
-    if (searchLine.item) searchLine.item.forceActiveFocus()
+    if (root.searchInput) root.searchInput.forceActiveFocus()
+  }
+
+  // The search line's text, caret and selection (lib/edit.js); with no line,
+  // the text with the caret at its end.
+  function searchState() {
+    return root.searchInput ? root.searchInput.editState() : Edit.make(root.filterText)
+  }
+
+  // Show an edited state: new text runs the search as typing does, then the
+  // caret and selection go where the edit left them.
+  function applyEdit(next) {
+    if (next.text !== root.filterText) root.setText(next.text)
+    var input = root.searchInput
+    if (!input) return
+    if (input.text !== next.text) input.text = next.text
+    input.place(next.cursor, next.anchor)
   }
 
   // ── layout helpers (the menu's fold: end mid-row when rows overflow) ────
@@ -602,7 +624,7 @@ Item {
     onExited: function(exitCode) {
       if (exitCode !== 0 || !root.opened) return
       var text = String(pasteOut.text || "").replace(/\s*[\r\n]+\s*/g, " ").slice(0, 1000)
-      if (text) root.setText(root.filterText + text)
+      if (text) root.applyEdit(Edit.insert(root.searchState(), text))
     }
   }
 
@@ -720,10 +742,11 @@ Item {
 
         Keys.priority: Keys.BeforeItem
         Keys.onPressed: function(event) {
-          var action = SearchKeys.route(event, { text: root.filterText, chip: !!root.chip, confirming: !!root.confirmKey })
+          var action = SearchKeys.route(event, { text: root.filterText, chip: !!root.chip, confirming: !!root.confirmKey,
+                                                 selection: !!root.searchInput && root.searchInput.hasSelection })
           if (!action) return
           event.accepted = true
-          root.perform(action, event)
+          root.perform(action)
         }
       }
 
@@ -768,19 +791,22 @@ Item {
                 anchors.fill: parent
                 active: root.opened
                 focus: true
-                sourceComponent: FilterInput {
+                sourceComponent: SearchInput {
+                  id: line
                   visible: !root.settingsOpen
                   keyHandler: keyCatcher
                   verticalAlignment: TextInput.AlignVCenter
                   color: root.foreground
+                  selectionColor: root.selectedBackground
+                  selectedTextColor: root.selectedText
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.heading
-                  Component.onCompleted: text = root.filterText
+                  Component.onCompleted: line.text = root.filterText
                   // Input-method commits can carry newlines; the box is one line.
                   onTextChanged: {
-                    var clean = text.replace(/\s*[\r\n]+\s*/g, " ")
-                    if (clean !== root.filterText) root.setText(clean)
-                    else if (clean !== text) text = clean
+                    var flat = Edit.flatten(line.editState())
+                    if (flat.text !== line.text) root.applyEdit(flat)
+                    else if (line.text !== root.filterText) root.setText(line.text)
                   }
                 }
               }
@@ -798,11 +824,22 @@ Item {
                 elide: Text.ElideRight
               }
 
-              // The pointer never edits the line: no selecting, no middle-click
+              // The pointer only places the caret (Shift+click selects up to
+              // it). It never reaches the text input itself, so there is no
+              // mouse selection on the primary selection and no middle-click
               // paste around Ctrl+V's cap.
               MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.AllButtons
+                onPressed: function(mouse) {
+                  var input = root.searchInput
+                  if (mouse.button !== Qt.LeftButton || !input || root.settingsOpen) return
+                  var at = mapToItem(input, mouse.x, mouse.y)
+                  var pos = input.positionAt(at.x, at.y)
+                  var keep = (mouse.modifiers & Qt.ShiftModifier) !== 0
+                  input.place(pos, keep ? input.editState().anchor : pos)
+                  input.forceActiveFocus()
+                }
               }
             }
           }
