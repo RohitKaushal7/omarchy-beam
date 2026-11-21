@@ -799,10 +799,12 @@ Item {
 
               // A TextInput, not a Text fed by key events, so fcitx5 and other
               // input methods (and dead keys) can type here. It exists only
-              // while Beam is open: an editable Qt text input watches the
-              // clipboard from the moment it is made, and Beam reads the
-              // clipboard only through its bounded paste (Ctrl+V). The text
-              // lives in root.filterText and comes back with the input.
+              // while Beam is open: an editable Qt input follows the clipboard
+              // from the moment it is made (Qt checks each new offer for text,
+              // and the compositor sends one when Beam takes the keyboard), so
+              // a closed Beam has none. Pastes go only through the bounded
+              // paste (Ctrl+V). The text lives in root.filterText and comes
+              // back with the input.
               Loader {
                 id: searchLine
                 anchors.fill: parent
@@ -977,7 +979,7 @@ Item {
           }
 
           // Like the search line, made only while it shows: its text and
-          // number fields are editable Qt inputs, which watch the clipboard.
+          // number fields are Qt inputs, which follow the clipboard.
           Loader {
             id: settingsLoader
             anchors.fill: parent

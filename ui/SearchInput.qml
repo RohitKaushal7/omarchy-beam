@@ -8,7 +8,10 @@ import QtQuick
 // through lib/edit.js and place(), and leaves only typed text to the input,
 // which puts it at the caret. The input's own shortcuts (undo, cut, copy,
 // paste) never see a key, and the pointer never reaches it, so it never
-// reads or writes a clipboard or the primary selection.
+// pastes or copies by itself, and never sets the primary selection. Like
+// any editable Qt input it still follows the clipboard while it exists (Qt
+// checks each new offer for text, to know whether paste is possible); Beam
+// makes it only while open.
 //
 // No caret while you type at the end, as before; it shows once it is
 // somewhere else, or while text is selected.

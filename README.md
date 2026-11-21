@@ -193,12 +193,16 @@ the feature is off.
   helper only through its environment, never a command line, log or file.
 - **Files** are written atomically through randomly named temp files with
   owner-only permissions; reads are size-capped and accept regular files only.
-- **Clipboard:** the search line reads it only when you paste (Ctrl+V or
-  Shift+Insert), through the bounded `wl-paste` above; its own copy, cut and
-  paste keys are off, and the pointer never selects text there, so nothing
-  reaches the primary selection. Beam's text inputs (the search line, and the
-  settings fields, which paste as any Qt field does) exist only while Beam or
-  its settings are open, since an editable Qt input watches the clipboard.
+- **Clipboard:** while Beam is closed it has no text input, so it never
+  touches the clipboard. While it is open, its search line (and, while
+  settings are open, their text fields) follows the clipboard as any Qt text
+  input does, the Omarchy shell's own included: Qt checks each new clipboard offer,
+  and the one the compositor sends when Beam takes the keyboard, for whether
+  it holds text. Pasting (Ctrl+V, Shift+Insert, the Paste key) always goes
+  through the bounded `wl-paste` above, and copying selected text through
+  `wl-copy`; the inputs' own paste, copy, cut, context menu and middle-click
+  paste are off, and the pointer never selects text, so Beam never sets the
+  primary selection.
 - **Display:** every label is rendered as plain text, never rich text.
 
 ## How it runs

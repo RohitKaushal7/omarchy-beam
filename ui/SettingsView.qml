@@ -430,8 +430,8 @@ FocusScope {
           active: spec.type === "text"
           // Enter, Esc, Tab or clicking away all save the text and hand the
           // keyboard back to the view.
-          // The field edits as usual, but never touches the clipboard or
-          // the primary selection itself: no mouse selection, middle-click
+          // The field edits as usual, but never pastes, copies or sets the
+          // primary selection by itself: no mouse selection, middle-click
           // paste or context menu, and its paste and copy keys go through
           // Beam's bounded wl-paste and wl-copy (lib/keys.js fieldKey).
           sourceComponent: TextField {
