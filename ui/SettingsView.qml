@@ -176,7 +176,9 @@ FocusScope {
     else if (event.key === Qt.Key_PageDown) view.move(6)
     else if (event.key === Qt.Key_Left) view.change(shift ? -10 : -1)
     else if (event.key === Qt.Key_Right) view.change(shift ? 10 : 1)
-    else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) view.activate()
+    else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+      if (!event.isAutoRepeat) view.activate()  // a held key flips a switch once
+    }
     else return
     event.accepted = true
   }

@@ -11,6 +11,7 @@ import "lib/shortcuts.js" as Shortcuts
 import "lib/precheck.js" as Precheck
 import "lib/compose.js" as Compose
 import "lib/proc.js" as Proc
+import "lib/keys.js" as SearchKeys
 
 // Beam: one box for apps, Omarchy actions, inline answers, search shortcuts
 // and URLs. Stability rules (spec §2.5): only keystrokes rebuild the list;
@@ -471,6 +472,32 @@ Item {
     }
   }
 
+  // A search-line key, as lib/keys.js routed it.
+  function perform(action, event) {
+    if (action.op === "unconfirm") {
+      root.confirmKey = ""
+    } else if (action.op === "clear" || action.op === "unchip") {
+      root.chip = null
+      root.setText("")
+    } else if (action.op === "dismiss") {
+      root.dismiss()
+    } else if (action.op === "settings") {
+      root.openSettings()
+    } else if (action.op === "copy") {
+      root.copySelected()
+    } else if (action.op === "paste") {
+      root.paste()
+    } else if (action.op === "tab") {
+      root.tab()
+    } else if (action.op === "edit") {
+      root.setText(Util.editedFilter(event, root.filterText))
+    } else if (action.op === "move") {
+      root.move(action.delta)
+    } else if (action.op === "enter") {
+      root.enter(action.paste)
+    }
+  }
+
   function openSettings() {
     root.settingsOpen = true
     Qt.callLater(function() { settingsView.reset() })
@@ -678,43 +705,10 @@ Item {
 
         Keys.priority: Keys.BeforeItem
         Keys.onPressed: function(event) {
-          var ctrl = (event.modifiers & Qt.ControlModifier) !== 0
-          var shift = (event.modifiers & Qt.ShiftModifier) !== 0
-          if (event.key === Qt.Key_Escape) {
-            if (root.confirmKey) root.confirmKey = ""
-            else if (root.filterText || root.chip) {
-              root.chip = null
-              root.setText("")
-            } else root.dismiss()
-          } else if (ctrl && event.key === Qt.Key_Comma) {
-            root.openSettings()
-          } else if (ctrl && event.key === Qt.Key_C) {
-            root.copySelected()
-          } else if ((ctrl && event.key === Qt.Key_V) || (shift && event.key === Qt.Key_Insert)) {
-            root.paste()  // flattened and capped, rather than the text field's own paste
-          } else if (event.key === Qt.Key_Tab) {
-            root.tab()
-          } else if (event.key === Qt.Key_Backtab) {
-            // nothing to go back to; never let it move focus off the search line
-          } else if (event.key === Qt.Key_Backspace && !root.filterText && root.chip) {
-            root.chip = null
-            root.setText("")
-          } else if (Util.editsFilter(event, root.filterText)) {
-            root.setText(Util.editedFilter(event, root.filterText))
-          } else if (event.key === Qt.Key_Up) {
-            root.move(-1)
-          } else if (event.key === Qt.Key_Down) {
-            root.move(1)
-          } else if (event.key === Qt.Key_PageUp) {
-            root.move(-6)
-          } else if (event.key === Qt.Key_PageDown) {
-            root.move(6)
-          } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            root.enter(shift)
-          } else {
-            return
-          }
+          var action = SearchKeys.route(event, { text: root.filterText, chip: !!root.chip, confirming: !!root.confirmKey })
+          if (!action) return
           event.accepted = true
+          root.perform(action, event)
         }
       }
 

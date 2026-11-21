@@ -41,7 +41,8 @@ Type, then press **Enter**.
 Keys: **↑/↓** move · **Enter** run or copy · **Shift+Enter** paste an answer · **Tab** search chip ·
 **Ctrl+C** copy the selected value · **Ctrl+,** settings · **Esc** clear, then close.
 
-Reboot, remove, update and install actions ask for a second Enter.
+Reboot, remove, update and install actions ask for a second Enter, a fresh
+press: holding Enter down does not confirm.
 
 With nothing typed, Beam lists your recent picks. Once you type, a recent pick
 goes first among equally good matches, but never ahead of a better match: an
