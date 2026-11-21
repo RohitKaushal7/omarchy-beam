@@ -414,8 +414,15 @@ Item {
     if (root.selectedIndex >= 0) root.activate(root.rows[root.selectedIndex], paste)
   }
 
+  // Bounded paste (pasteProc) at the search line's caret.
   function paste() {
+    root.pasteTo(function(text) { root.applyEdit(Edit.insert(root.searchState(), text)) })
+  }
+
+  // target(text) receives the flattened, capped clipboard text.
+  function pasteTo(target) {
     root.confirmKey = ""
+    pasteProc.target = target
     if (!pasteProc.running) pasteProc.running = true
   }
 
@@ -624,12 +631,15 @@ Item {
   // the shell; 1000 characters always fit in 4 KiB of UTF-8.
   Process {
     id: pasteProc
+    property var target: null
     command: Proc.bounded(["/usr/bin/wl-paste", "--no-newline", "--type", "text"], 2, 4096)
     stdout: StdioCollector { id: pasteOut; waitForEnd: true }
     onExited: function(exitCode) {
-      if (exitCode !== 0 || !root.opened) return
+      var target = pasteProc.target
+      pasteProc.target = null
+      if (exitCode !== 0 || !root.opened || !target) return
       var text = String(pasteOut.text || "").replace(/\s*[\r\n]+\s*/g, " ").slice(0, 1000)
-      if (text) root.applyEdit(Edit.insert(root.searchState(), text))
+      if (text) target(text)
     }
   }
 
@@ -985,6 +995,8 @@ Item {
               rowHeight: root.baseRowHeight
               detailRowHeight: root.detailRowHeight
               onCloseRequested: root.closeSettings()
+              onPasteRequested: root.pasteTo(function(text) { if (root.settingsView) root.settingsView.insertText(text) })
+              onCopyRequested: function(text) { root.copyText(text) }
             }
           }
         }

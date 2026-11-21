@@ -18,6 +18,9 @@ Item {
   // Colours are passed in, as Beam does: once an earlier test file has loaded,
   // qmltestrunner resolves `Color` to QtQuick's own type, not the qs.Commons
   // stub, so the view's Color.menu defaults would read undefined.
+  SignalSpy { id: pasteSpy; target: view; signalName: "pasteRequested" }
+  SignalSpy { id: copySpy; target: view; signalName: "copyRequested" }
+
   SettingsView {
     id: view
     anchors.fill: parent
@@ -121,6 +124,37 @@ Item {
       wait(80)
       keyClick(Qt.Key_Space)
       compare(store.settings.behavior.confirmRisky, before, "a fresh press flips it back")
+    }
+
+    function test_text_fields_use_beams_clipboard_path() {
+      store.set("jev.keyFile", "/tmp/key")
+      goTo("jev.keyFile")
+      wait(80)
+      keyClick(Qt.Key_Return)
+      verify(view.editing)
+      var editor = view.activeEditor
+      compare(editor.selectedText, "/tmp/key")
+      verify(!editor.selectByMouse)
+      pasteSpy.clear()
+      copySpy.clear()
+      keyClick(Qt.Key_V, Qt.ControlModifier)
+      keyClick(Qt.Key_Insert, Qt.ShiftModifier)
+      compare(pasteSpy.count, 2)
+      keyClick(Qt.Key_C, Qt.ControlModifier)
+      compare(copySpy.count, 1)
+      compare(copySpy.signalArguments[0][0], "/tmp/key")
+      keyClick(Qt.Key_X, Qt.ControlModifier)
+      keyClick(Qt.Key_Delete, Qt.ShiftModifier)
+      compare(editor.text, "/tmp/key", "no cut")
+      view.insertText("/home/me/key")
+      compare(editor.text, "/home/me/key", "the bounded paste replaces the selection")
+      mouseClick(editor, 5, editor.height / 2, Qt.MiddleButton)
+      compare(editor.text, "/home/me/key", "no middle-click paste")
+      keyClick(Qt.Key_Escape)
+      verify(!view.editing)
+      compare(store.settings.jev.keyFile, "/home/me/key")
+      view.insertText("late")
+      compare(store.settings.jev.keyFile, "/home/me/key", "a paste that lands after editing is dropped")
     }
 
     function test_shortcut_examples_follow_the_engines() {

@@ -160,3 +160,23 @@ test("a double-click cannot arm a risky row and confirm it", () => {
   assert.equal(Keys.doubleClickMs({ mouseDoubleClickInterval: 650 }), 650)
   assert.equal(Keys.doubleClickMs(null), 400)
 })
+
+test("settings fields: paste and copy go through Beam, cut and clipboard deletes do nothing", () => {
+  const f = (key, mods) => Keys.fieldKey(press(key, mods))
+  assert.equal(f(0x56, MOD.Control), "paste")
+  assert.equal(f(KEY.Insert, MOD.Shift), "paste")
+  assert.equal(f(KEY.Insert, MOD.Control | MOD.Shift), "paste")
+  assert.equal(f(KEY.Paste), "paste")
+  assert.equal(f(KEY.C, MOD.Control), "copy")
+  assert.equal(f(KEY.Insert, MOD.Control), "copy")
+  assert.equal(f(KEY.Copy), "copy")
+  for (const [key, mods] of [[0x58, MOD.Control], [KEY.Delete, MOD.Shift], [KEY.Cut, 0], [KEY.Menu, 0],
+                             [0x4b, MOD.Control], [KEY.U, MOD.Control], [KEY.Delete, MOD.Control | MOD.Shift]]) {
+    assert.equal(f(key, mods), "none", key.toString(16))
+  }
+  for (const [key, mods] of [[0x61, 0], [KEY.A, MOD.Control], [0x5a, MOD.Control], [0x5a, MOD.Control | MOD.Shift],
+                             [KEY.Left, MOD.Control | MOD.Shift], [KEY.Backspace, MOD.Control], [KEY.Delete, 0],
+                             [KEY.Home, 0], [KEY.Escape, 0]]) {
+    assert.equal(f(key, mods), null, key.toString(16))
+  }
+})

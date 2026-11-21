@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls as QQC
 import qs.Commons
 import qs.Ui
 import "../lib/settings.js" as Settings
@@ -42,6 +43,10 @@ FocusScope {
   property var activeEditor: null
 
   signal closeRequested()
+  // A settings text field asks Beam for its bounded paste (see insertText)
+  // and hands it selected text to copy through wl-copy.
+  signal pasteRequested()
+  signal copyRequested(string text)
 
   readonly property var settings: view.store ? view.store.settings : ({})
   readonly property var engines: view.settings.search
@@ -159,6 +164,15 @@ FocusScope {
   PointerMoveGate {
     id: pointerGate
     referenceItem: view
+  }
+
+  // Text from Beam's bounded paste goes into the field being edited, over its
+  // selection. Dropped if editing has ended since the paste was asked for.
+  function insertText(text) {
+    var editor = view.activeEditor
+    if (!editor || !view.editing) return
+    if (editor.selectionStart !== editor.selectionEnd) editor.remove(editor.selectionStart, editor.selectionEnd)
+    editor.insert(editor.cursorPosition, text)
   }
 
   // Called each time settings opens: start at the first setting, at the top.
@@ -391,6 +405,9 @@ FocusScope {
           field.focusPolicy: Qt.NoFocus
           field.editable: false
           onModified: function(value) { view.set(spec.path, value) }
+          // Read-only, but a drag would still select its digits onto the
+          // primary selection.
+          Component.onCompleted: if (field.contentItem) field.contentItem.selectByMouse = false
         }
 
         Dropdown {
@@ -413,12 +430,18 @@ FocusScope {
           active: spec.type === "text"
           // Enter, Esc, Tab or clicking away all save the text and hand the
           // keyboard back to the view.
+          // The field edits as usual, but never touches the clipboard or
+          // the primary selection itself: no mouse selection, middle-click
+          // paste or context menu, and its paste and copy keys go through
+          // Beam's bounded wl-paste and wl-copy (lib/keys.js fieldKey).
           sourceComponent: TextField {
             id: editor
             function startEdit() {
               forceActiveFocus()
               selectAll()
             }
+            selectByMouse: false
+            QQC.ContextMenu.menu: null
             text: String(view.get(spec.path) || "")
             hasCursor: rowItem.hasCursor
             font.family: view.fontFamily
@@ -434,6 +457,28 @@ FocusScope {
                 view.set(spec.path, text)
                 view.refocus()
                 event.accepted = true
+                return
+              }
+              var clip = SearchKeys.fieldKey(event)
+              if (clip === "paste") view.pasteRequested()
+              else if (clip === "copy" && editor.selectedText) view.copyRequested(editor.selectedText)
+              if (clip) event.accepted = true
+            }
+
+            // Left button: start editing, or put the caret where you click.
+            // Middle and right do nothing.
+            MouseArea {
+              anchors.fill: parent
+              acceptedButtons: Qt.AllButtons
+              cursorShape: Qt.IBeamCursor
+              onPressed: function(mouse) {
+                if (mouse.button !== Qt.LeftButton) return
+                if (!editor.activeFocus) {
+                  editor.startEdit()
+                } else {
+                  editor.deselect()
+                  editor.cursorPosition = editor.positionAt(mouse.x, mouse.y)
+                }
               }
             }
           }
