@@ -4,6 +4,7 @@ import qs.Ui
 import "../lib/settings.js" as Settings
 import "../lib/examples.js" as Examples
 import "../lib/shortcuts.js" as Shortcuts
+import "../lib/keys.js" as SearchKeys
 
 // Beam settings: one compact row per setting (icon · label · control), keyboard
 // first. ↑/↓ move, ←/→ change numbers and choices, Space/Enter flips a switch
@@ -14,6 +15,8 @@ FocusScope {
   id: view
 
   property var store: null
+  // When Enter and Space were last really let go; Beam shares its own.
+  property var keyReleases: ({})
   property string jevStatus: "unknown"
   property color foreground: Color.menu.text
   property color selectedBackground: Color.menu.selectedBackground
@@ -177,11 +180,13 @@ FocusScope {
     else if (event.key === Qt.Key_Left) view.change(shift ? -10 : -1)
     else if (event.key === Qt.Key_Right) view.change(shift ? 10 : 1)
     else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-      if (!event.isAutoRepeat) view.activate()  // a held key flips a switch once
+      // A held key flips a switch once, whichever way it repeats.
+      if (SearchKeys.freshPress(view.keyReleases, event, Date.now())) view.activate()
     }
     else return
     event.accepted = true
   }
+  Keys.onReleased: function(event) { SearchKeys.noteRelease(view.keyReleases, event, Date.now()) }
 
   Column {
     anchors.fill: parent

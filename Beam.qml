@@ -53,6 +53,9 @@ Item {
   property string copiedKey: ""
   property var recent: []
   property string jevStatus: "unknown"
+  // When Enter and Space were last really let go (lib/keys.js noteRelease),
+  // shared with the settings view, which a held Enter can open.
+  property var keyReleases: ({})
   property bool animateInsert: false
   property int layoutSerial: 0
   // "Press Enter again" is for the row it was armed on; moving away cancels it.
@@ -743,11 +746,13 @@ Item {
         Keys.priority: Keys.BeforeItem
         Keys.onPressed: function(event) {
           var action = SearchKeys.route(event, { text: root.filterText, chip: !!root.chip, confirming: !!root.confirmKey,
-                                                 selection: !!root.searchInput && root.searchInput.hasSelection })
+                                                 selection: !!root.searchInput && root.searchInput.hasSelection,
+                                                 releases: root.keyReleases, now: Date.now() })
           if (!action) return
           event.accepted = true
           root.perform(action)
         }
+        Keys.onReleased: function(event) { SearchKeys.noteRelease(root.keyReleases, event, Date.now()) }
       }
 
       Column {
@@ -964,6 +969,7 @@ Item {
             visible: root.settingsOpen
             sourceComponent: SettingsView {
               store: settingsStore
+              keyReleases: root.keyReleases
               jevStatus: root.jevStatus
               foreground: root.foreground
               selectedBackground: root.selectedBackground

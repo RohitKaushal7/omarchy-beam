@@ -118,3 +118,35 @@ test("plain keys are left to the text input", () => {
   assert.equal(Keys.route(press(0x41), typed), null)
   assert.equal(Keys.route(press(0x20), typed), null)
 })
+
+test("a press right behind a release is a repeat: fcitx5's held Enter cannot confirm", () => {
+  const releases = {}
+  const confirming = { text: "reboot", chip: false, confirming: true, releases }
+  // The press that armed the row, then the input method's repeats: release
+  // and press back to back, neither marked as a repeat.
+  assert.equal(Keys.route(press(KEY.Return), { ...confirming, confirming: false, now: 1000 }).op, "enter")
+  for (const t of [1500, 1540, 1580]) {
+    Keys.noteRelease(releases, press(KEY.Return), t)
+    assert.equal(Keys.route(press(KEY.Return), { ...confirming, now: t + 1 }).op, "none", String(t))
+    assert.equal(Keys.route(press(KEY.Return), { ...confirming, now: t + Keys.REPEAT_GAP_MS }).op, "none")
+  }
+  // A person lets go and presses again.
+  Keys.noteRelease(releases, press(KEY.Return), 2000)
+  assert.equal(Keys.route(press(KEY.Return), { ...confirming, now: 2120 }).op, "enter")
+  assert.equal(Keys.route(press(KEY.Enter, MOD.Shift), { ...confirming, now: 2120 }).op, "enter")
+})
+
+test("freshPress: repeats marked by Qt, keys counted apart, no release yet", () => {
+  const releases = {}
+  assert.ok(Keys.freshPress(releases, press(KEY.Return), 5))
+  assert.ok(!Keys.freshPress(releases, press(KEY.Return, 0, true), 5000))
+  Keys.noteRelease(releases, press(KEY.Return, 0, true), 100)
+  assert.deepEqual(releases, {}, "a repeat's release is not a real one")
+  Keys.noteRelease(releases, press(KEY.Enter), 100)
+  assert.ok(!Keys.freshPress(releases, press(KEY.Return), 110), "keypad Enter and Return are one key")
+  assert.ok(Keys.freshPress(releases, press(0x20), 110), "Space is counted apart")
+  Keys.noteRelease(releases, press(0x20), 200)
+  assert.ok(!Keys.freshPress(releases, press(0x20), 210))
+  assert.ok(Keys.freshPress(releases, press(0x20), 260))
+  assert.ok(Keys.freshPress(undefined, press(KEY.Return), 0))
+})

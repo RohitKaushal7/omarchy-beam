@@ -106,6 +106,23 @@ Item {
       verify(!findChild(examples(view.cursor).item, "offCaption").visible)
     }
 
+    function test_a_held_key_flips_a_switch_once() {
+      goTo("behavior.confirmRisky")
+      verify(view.activeFocus)
+      var before = store.settings.behavior.confirmRisky
+      wait(80)
+      keyClick(Qt.Key_Space)
+      compare(store.settings.behavior.confirmRisky, !before)
+      // An input method's repeat: a release and a press back to back.
+      keyClick(Qt.Key_Space)
+      compare(store.settings.behavior.confirmRisky, !before, "a repeat")
+      keyClick(Qt.Key_Space)
+      compare(store.settings.behavior.confirmRisky, !before, "repeats right behind a release do nothing")
+      wait(80)
+      keyClick(Qt.Key_Space)
+      compare(store.settings.behavior.confirmRisky, before, "a fresh press flips it back")
+    }
+
     function test_shortcut_examples_follow_the_engines() {
       goTo("sources.shortcuts")
       var before = row(view.cursor).height
