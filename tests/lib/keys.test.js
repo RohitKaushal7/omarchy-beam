@@ -150,3 +150,13 @@ test("freshPress: repeats marked by Qt, keys counted apart, no release yet", () 
   assert.ok(Keys.freshPress(releases, press(0x20), 260))
   assert.ok(Keys.freshPress(undefined, press(KEY.Return), 0))
 })
+
+test("a double-click cannot arm a risky row and confirm it", () => {
+  const interval = 400
+  assert.ok(Keys.deliberateClick(false, 1000, 0, interval), "a click on an unarmed row runs or arms it")
+  assert.ok(!Keys.deliberateClick(true, 1150, 1000, interval), "the double-click's second click")
+  assert.ok(!Keys.deliberateClick(true, 1399, 1000, interval), "a triple-click's third")
+  assert.ok(Keys.deliberateClick(true, 1400, 1000, interval), "a separate click confirms")
+  assert.equal(Keys.doubleClickMs({ mouseDoubleClickInterval: 650 }), 650)
+  assert.equal(Keys.doubleClickMs(null), 400)
+})

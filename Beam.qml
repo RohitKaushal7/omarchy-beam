@@ -50,6 +50,7 @@ Item {
   property int answerAsked: -1
   property int answerHeard: -1
   property string confirmKey: ""
+  property real armedAt: 0  // when confirmKey was armed (Date.now())
   property string copiedKey: ""
   property var recent: []
   property string jevStatus: "unknown"
@@ -482,6 +483,7 @@ Item {
     } else if (r.kind === "action") {
       if (r.risky && root.confirmKey !== r.key) {
         root.confirmKey = r.key
+        root.armedAt = Date.now()
         return
       }
       root.remember(r)
@@ -897,6 +899,10 @@ Item {
                   if (resultRow.kind !== "empty" && pointerGate.moved(resultRow, mouse)) root.selectedKey = resultRow.key
                 }
                 onClicked: {
+                  // The second click of a double-click is a click too; it
+                  // must not confirm the row the first one just armed.
+                  if (!SearchKeys.deliberateClick(resultRow.key === root.confirmKey, Date.now(), root.armedAt,
+                                                  SearchKeys.doubleClickMs(Qt.styleHints))) return
                   root.selectedKey = resultRow.key
                   root.activateSelected()
                 }

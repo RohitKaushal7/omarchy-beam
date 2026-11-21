@@ -26,6 +26,10 @@ TestCase {
     compare(M.Meta, Qt.MetaModifier)
   }
 
+  function test_double_click_interval_is_the_desktops() {
+    compare(SearchKeys.doubleClickMs(Qt.styleHints), Qt.styleHints.mouseDoubleClickInterval)
+  }
+
   function test_held_enter_is_swallowed() {
     var held = { key: Qt.Key_Return, modifiers: Qt.NoModifier, isAutoRepeat: true }
     compare(SearchKeys.route(held, { text: "reboot", chip: false, confirming: true }).op, "none")
