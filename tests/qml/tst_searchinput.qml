@@ -172,9 +172,12 @@ Item {
       compare(root.filterText, "", "Shift+Delete deletes the selection, it does not cut")
       keyClick(Qt.Key_Z, Qt.ControlModifier)
       compare(root.filterText, "", "no undo behind Beam's back")
+      keyClick(Qt.Key_F14)
+      compare(root.filterText, "", "nor through F14, Undo on X11 keyboards")
       keyClick(Qt.Key_V, Qt.ControlModifier)
       keyClick(Qt.Key_Insert, Qt.ShiftModifier)
-      compare(root.ops, ["paste", "paste"], "paste goes to Beam's bounded paste")
+      keyClick(Qt.Key_Insert, Qt.ControlModifier | Qt.ShiftModifier)
+      compare(root.ops, ["paste", "paste", "paste"], "paste goes to Beam's bounded paste")
       compare(root.filterText, "")
     }
 

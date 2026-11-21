@@ -81,6 +81,21 @@ test("editing keys on an empty line do nothing", () => {
   assert.equal(Keys.route(press(KEY.A, MOD.Control), empty).op, "none")
 })
 
+test("Ctrl+Shift+Insert pastes; it never copies over the clipboard", () => {
+  assert.equal(Keys.route(press(KEY.Insert, MOD.Control | MOD.Shift), { text: "abc", selection: true }).op, "paste")
+  assert.equal(Keys.route(press(KEY.Insert, MOD.Control | MOD.Shift), typed).op, "paste")
+  assert.equal(Keys.route(press(KEY.C, MOD.Control | MOD.Shift), typed).op, "none")
+})
+
+test("undo and redo keys, and other keys without text, are swallowed", () => {
+  for (const [key, mods] of [[KEY.F14, 0], [KEY.F14, MOD.Shift], [KEY.Undo, 0], [KEY.Redo, 0], [KEY.Menu, 0],
+                             [0x01000030, 0] /* F1 */, [0x01000020, MOD.Shift] /* Shift itself */]) {
+    assert.equal(Keys.route(press(key, mods), typed).op, "none", key.toString(16))
+  }
+  assert.equal(Keys.route(press(KEY.Unknown), typed), null, "an unmapped key may carry a character")
+  assert.equal(Keys.route(press(0xdf), typed), null, "ß types")
+})
+
 test("the text input's own shortcuts never see a key", () => {
   for (const [key, mods] of [[0x5a, MOD.Control], [0x58, MOD.Control], [0x4b, MOD.Control], [0x59, MOD.Control],
                              [KEY.Left, MOD.Alt], [KEY.Backspace, MOD.Alt], [0x41, MOD.Meta],
