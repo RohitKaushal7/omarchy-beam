@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -55,7 +57,12 @@ Item {
   // "Press Enter again" is for the row it was armed on; moving away cancels it.
   onSelectedKeyChanged: if (root.confirmKey && root.selectedKey !== root.confirmKey) root.confirmKey = ""
   // The search line shows filterText; edits made here (Backspace, paste, chips) flow back to it.
-  onFilterTextChanged: if (filterInput.text !== root.filterText) filterInput.text = root.filterText
+  onFilterTextChanged: {
+    var input = searchLine.item
+    if (input && input.text !== root.filterText) input.text = root.filterText
+  }
+  // Input-method text being composed on the search line (shown, not yet typed).
+  readonly property bool composing: !!searchLine.item && (searchLine.item as TextInput).preeditText.length > 0
 
   // Omarchy menu surface tokens, so themes that style the menu style Beam.
   property color background: Color.menu.background
@@ -95,7 +102,7 @@ Item {
     engine.start()
     menuSource.refresh()
     if (root.appLibrary) root.appLibrary.refreshIcons()
-    Qt.callLater(function() { filterInput.forceActiveFocus() })
+    Qt.callLater(root.focusSearch)
   }
 
   function close() {
@@ -505,7 +512,11 @@ Item {
 
   function closeSettings() {
     root.settingsOpen = false
-    Qt.callLater(function() { filterInput.forceActiveFocus() })
+    Qt.callLater(root.focusSearch)
+  }
+
+  function focusSearch() {
+    if (searchLine.item) searchLine.item.forceActiveFocus()
   }
 
   // ── layout helpers (the menu's fold: end mid-row when rows overflow) ────
@@ -697,7 +708,7 @@ Item {
 
       MouseArea { anchors.fill: parent; onClicked: {} }
 
-      // Focus is on filterInput, which forwards every key here first and types
+      // Focus is on the search line, which forwards every key here first and types
       // whatever this leaves unaccepted, input-method text included.
       Item {
         id: keyCatcher
@@ -743,21 +754,30 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
 
               // A TextInput, not a Text fed by key events, so fcitx5 and other
-              // input methods (and dead keys) can type here.
-              FilterInput {
-                id: filterInput
+              // input methods (and dead keys) can type here. It exists only
+              // while Beam is open: an editable Qt text input watches the
+              // clipboard from the moment it is made, and Beam reads the
+              // clipboard only through its bounded paste (Ctrl+V). The text
+              // lives in root.filterText and comes back with the input.
+              Loader {
+                id: searchLine
                 anchors.fill: parent
-                visible: !root.settingsOpen
-                keyHandler: keyCatcher
-                verticalAlignment: TextInput.AlignVCenter
-                color: root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.heading
-                // Input-method commits can carry newlines; the box is one line.
-                onTextChanged: {
-                  var clean = text.replace(/\s*[\r\n]+\s*/g, " ")
-                  if (clean !== root.filterText) root.setText(clean)
-                  else if (clean !== text) text = clean
+                active: root.opened
+                focus: true
+                sourceComponent: FilterInput {
+                  visible: !root.settingsOpen
+                  keyHandler: keyCatcher
+                  verticalAlignment: TextInput.AlignVCenter
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.heading
+                  Component.onCompleted: text = root.filterText
+                  // Input-method commits can carry newlines; the box is one line.
+                  onTextChanged: {
+                    var clean = text.replace(/\s*[\r\n]+\s*/g, " ")
+                    if (clean !== root.filterText) root.setText(clean)
+                    else if (clean !== text) text = clean
+                  }
                 }
               }
 
@@ -765,7 +785,7 @@ Item {
                 textFormat: Text.PlainText
                 anchors.fill: parent
                 verticalAlignment: Text.AlignVCenter
-                visible: root.settingsOpen || (!root.filterText && !filterInput.preeditText)
+                visible: root.settingsOpen || (!root.filterText && !root.composing)
                 text: root.settingsOpen ? "Beam settings" : (root.chip ? "Search " + root.chip.name + "…" : "Beam…")
                 color: root.foreground
                 opacity: root.settingsOpen ? 1 : 0.58
