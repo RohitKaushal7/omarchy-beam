@@ -61,6 +61,8 @@ Item {
     var input = searchLine.item
     if (input && input.text !== root.filterText) input.text = root.filterText
   }
+  // The settings view, while it shows (see settingsLoader); null otherwise.
+  readonly property SettingsView settingsView: settingsLoader.item as SettingsView
   // Input-method text being composed on the search line (shown, not yet typed).
   readonly property bool composing: !!searchLine.item && (searchLine.item as TextInput).preeditText.length > 0
 
@@ -106,6 +108,8 @@ Item {
   }
 
   function close() {
+    // A setting being edited is saved, as clicking away saves it, before the view goes.
+    if (root.settingsView) root.settingsView.refocus()
     root.opened = false
     answerTimer.stop()
     enterGate.cancel()
@@ -132,8 +136,8 @@ Item {
                             jev: root.jevStatus, entries: menuSource.entries.length,
                             appLibrary: root.appLibrary ? "shell" : "none",
                             card: { x: card.x, y: card.y, width: card.width, height: card.height },
-                            settingsCursor: settingsView.cursor,
-                            settingsEditing: settingsView.editing,
+                            settingsCursor: root.settingsView ? root.settingsView.cursor : -1,
+                            settingsEditing: root.settingsView ? root.settingsView.editing : false,
                             filterText: root.filterText,
                             rows: root.rows.map(function(r) { return r.kind + " " + r.key }),
                             settings: root.settings })
@@ -507,7 +511,7 @@ Item {
 
   function openSettings() {
     root.settingsOpen = true
-    Qt.callLater(function() { settingsView.reset() })
+    Qt.callLater(function() { if (root.settingsView) root.settingsView.reset() })
   }
 
   function closeSettings() {
@@ -914,20 +918,25 @@ Item {
             }
           }
 
-          SettingsView {
-            id: settingsView
+          // Like the search line, made only while it shows: its text and
+          // number fields are editable Qt inputs, which watch the clipboard.
+          Loader {
+            id: settingsLoader
             anchors.fill: parent
+            active: root.opened && root.settingsOpen
             visible: root.settingsOpen
-            store: settingsStore
-            jevStatus: root.jevStatus
-            foreground: root.foreground
-            selectedBackground: root.selectedBackground
-            selectedText: root.selectedText
-            selectedBorderSpec: root.selectedBorderSpec
-            fontFamily: root.fontFamily
-            rowHeight: root.baseRowHeight
-            detailRowHeight: root.detailRowHeight
-            onCloseRequested: root.closeSettings()
+            sourceComponent: SettingsView {
+              store: settingsStore
+              jevStatus: root.jevStatus
+              foreground: root.foreground
+              selectedBackground: root.selectedBackground
+              selectedText: root.selectedText
+              selectedBorderSpec: root.selectedBorderSpec
+              fontFamily: root.fontFamily
+              rowHeight: root.baseRowHeight
+              detailRowHeight: root.detailRowHeight
+              onCloseRequested: root.closeSettings()
+            }
           }
         }
       }
