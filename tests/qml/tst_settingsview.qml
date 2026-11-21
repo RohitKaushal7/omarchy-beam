@@ -15,10 +15,16 @@ Item {
     function set(path, value) { store.settings = Settings.withValue(store.settings, path, value) }
   }
 
+  // Colours are passed in, as Beam does: once an earlier test file has loaded,
+  // qmltestrunner resolves `Color` to QtQuick's own type, not the qs.Commons
+  // stub, so the view's Color.menu defaults would read undefined.
   SettingsView {
     id: view
     anchors.fill: parent
     store: store
+    foreground: "#dddddd"
+    selectedBackground: "#333333"
+    selectedText: "#ffffff"
   }
 
   TestCase {
